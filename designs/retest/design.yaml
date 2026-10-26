@@ -1,0 +1,33 @@
+# Retest report: everything from "pentest" plus the retest fields below.
+# Content is added through two hook files that the pentest template includes:
+#   summary-extra.html  → end of the executive summary (status chart + table)
+#   finding-extra.html  → end of every finding (retest box)
+name: Penetration Test Retest
+description: Pentest report with a retest result for every finding (solved / partially solved / not solved) and remediation statistics.
+extends: pentest
+
+theme:
+  cover_kicker: Retest Report
+
+report_fields:
+  title:          { default: Penetration Test Retest }
+  retest_date:    { type: date, label: Retest date, group: Retest, copy: false }
+  original_report: { type: string, label: Original report, placeholder: "Pentest report v1.0, 2026-03-01", group: Retest }
+  retest_summary: { type: markdown, label: Retest summary, group: Retest, section: none, copy: false, help: "Printed in the executive summary, above the remediation status chart." }
+
+finding_fields:
+  retest_status:
+    type: enum
+    label: Retest result
+    group: Retest
+    default: not_tested
+    copy: false
+    help: Solved and partially solved findings are counted in the remediation chart.
+    options:
+      - { value: solved, label: Solved, color: "#2e7d32" }
+      - { value: partial, label: Partially solved, color: "#e0a800" }
+      - { value: not_solved, label: Not solved, color: "#c62828" }
+      - { value: not_tested, label: Not retested, color: "#6b7280" }
+  retest_date:    { type: date, label: Retest date, group: Retest, copy: false }
+  retest_notes:   { type: markdown, label: Retest notes, group: Retest, rows: 8, copy: false, help: What was verified during the retest and how. }
+  retest_evidence: { type: screenshots, label: Retest screenshots, group: Retest, copy: false }

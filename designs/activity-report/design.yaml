@@ -1,0 +1,99 @@
+# Generic activity report (weekly/monthly status, consulting activities, project log).
+# Everything here is meant to be changed: open "Edit Fields & Collections" to add your own
+# fields, or use the "Additional information" table for one-off custom fields without
+# touching the design.
+name: Activity Report
+description: Generic activity / status report — period, activities with owner, effort and status, issues and next steps, plus free custom fields.
+extends: base
+
+theme:
+  accent: "#0369a1"
+  cover_start: "#082f49"
+  cover_end: "#0369a1"
+  cover_kicker: Activity Report
+
+report_fields:
+  title:          { default: Activity Report }
+  project:        { type: string, label: Project / contract, group: General }
+  period_start:   { type: date, label: Period from, group: General, required: true }
+  period_end:     { type: date, label: Period to, group: General, required: true }
+  team:           { type: list, group: General }
+  overall_status:
+    type: enum
+    label: Overall status
+    group: General
+    default: on_track
+    options:
+      - { value: on_track, label: On track, color: "#2e7d32" }
+      - { value: at_risk, label: At risk, color: "#e0a800" }
+      - { value: off_track, label: Off track, color: "#c62828" }
+  summary:        { type: markdown, required: true, group: Summary, rows: 8 }
+  highlights:     { type: list, items: markdown, group: Summary, section: before }
+  custom_fields:
+    type: table
+    label: Additional information
+    group: Custom
+    section: before
+    help: Free key/value pairs — add any custom field you need for this report.
+    columns:
+      field: { type: string, label: Field, required: true }
+      value: { type: markdown, label: Value }
+  next_steps:     { type: markdown, label: Next steps, group: Summary, section: after }
+
+collections:
+  activities:
+    label: Activities
+    item_label: Activity
+    prefix: "AT-"
+    sort: date
+    icon: checklist
+    chart: status
+    page_break: false
+    fields:
+      title:     { type: string, required: true }
+      date:      { type: date, required: true }
+      end_date:  { type: date, label: End date }
+      owner:     { type: user }
+      category:  { type: string, placeholder: "Meeting, development, support…" }
+      status:
+        type: enum
+        default: done
+        options:
+          - { value: planned, label: Planned, color: "#6b7280" }
+          - { value: in_progress, label: In progress, color: "#1f7ae0" }
+          - { value: done, label: Done, color: "#2e7d32" }
+          - { value: blocked, label: Blocked, color: "#c62828" }
+      effort:    { type: number, label: Effort (hours) }
+      description: { type: markdown }
+      attachments: { type: screenshots, label: Screenshots }
+      details:
+        type: table
+        label: Custom details
+        help: Extra key/value pairs for this activity only.
+        columns:
+          field: { type: string, required: true }
+          value: { type: string }
+  issues:
+    label: Issues and Risks
+    item_label: Issue
+    prefix: "I-"
+    layout: table
+    icon: warning
+    columns: [number, title, impact, owner, status]
+    fields:
+      title:   { type: string, required: true }
+      impact:
+        type: enum
+        options:
+          - { value: high, label: High, color: "#c62828" }
+          - { value: medium, label: Medium, color: "#e0a800" }
+          - { value: low, label: Low, color: "#1f7ae0" }
+      owner:   { type: user }
+      status:
+        type: enum
+        default: open
+        options:
+          - { value: open, label: Open, color: "#c62828" }
+          - { value: mitigated, label: Mitigated, color: "#e0a800" }
+          - { value: closed, label: Closed, color: "#2e7d32" }
+      mitigation: { type: markdown }

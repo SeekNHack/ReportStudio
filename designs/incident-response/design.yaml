@@ -1,0 +1,119 @@
+# Incident response report (blue team). No HTML needed: it extends the generic
+# "base" design, which prints report fields and collections automatically.
+name: Blue Team · Incident Response
+description: Incident report with timeline, indicators of compromise, affected systems and actions.
+extends: base
+
+theme:
+  accent: "#0f766e"
+  cover_start: "#062925"
+  cover_end: "#0f766e"
+  cover_kicker: Incident Response
+
+report_fields:
+  title:          { default: Incident Response Report }
+  incident_id:    { type: string, label: Incident ID, placeholder: IR-2026-014, group: Incident, required: true }
+  incident_severity:
+    type: enum
+    label: Incident severity
+    group: Incident
+    options:
+      - { value: sev1, label: SEV-1 Critical, color: "#c2185b" }
+      - { value: sev2, label: SEV-2 High, color: "#e8590c" }
+      - { value: sev3, label: SEV-3 Medium, color: "#e0a800" }
+      - { value: sev4, label: SEV-4 Low, color: "#1f7ae0" }
+  status:
+    type: enum
+    group: Incident
+    default: open
+    options:
+      - { value: open, label: Open, color: "#c62828" }
+      - { value: contained, label: Contained, color: "#e0a800" }
+      - { value: eradicated, label: Eradicated, color: "#1f7ae0" }
+      - { value: closed, label: Closed, color: "#2e7d32" }
+  detected_at:    { type: datetime, label: Detected at, group: Incident }
+  contained_at:   { type: datetime, label: Contained at, group: Incident }
+  incident_type:  { type: string, label: Incident type, placeholder: Ransomware, group: Incident }
+  attack_vector:  { type: string, label: Attack vector, placeholder: "Phishing, VPN credential stuffing…", group: Incident }
+  mitre_techniques: { type: list, label: MITRE ATT&CK techniques, group: Analysis, placeholder: "T1078 Valid Accounts" }
+  executive_summary: { type: markdown, label: Executive summary, required: true, group: Analysis, rows: 8 }
+  affected_systems:
+    type: table
+    label: Affected systems
+    group: Analysis
+    section: before
+    columns:
+      hostname: { type: string, required: true }
+      ip:       { type: string, label: IP address }
+      role:     { type: string }
+      impact:
+        type: enum
+        options:
+          - { value: encrypted, label: Encrypted, color: "#c2185b" }
+          - { value: compromised, label: Compromised, color: "#e8590c" }
+          - { value: suspicious, label: Suspicious, color: "#e0a800" }
+          - { value: clean, label: Clean, color: "#2e7d32" }
+  root_cause:     { type: markdown, label: Root cause, group: Analysis }
+  lessons_learned: { type: markdown, label: Lessons learned, group: Closure, section: after }
+  recommendations: { type: markdown, group: Closure, section: after }
+
+collections:
+  events:
+    label: Timeline
+    item_label: Event
+    layout: timeline
+    sort: timestamp
+    icon: history
+    description: Chronology of the incident, as reconstructed from logs and interviews.
+    fields:
+      timestamp: { type: datetime, required: true }
+      title:     { type: string, required: true }
+      phase:
+        type: enum
+        options:
+          - { value: initial_access, label: Initial access, color: "#c2185b" }
+          - { value: execution, label: Execution, color: "#e8590c" }
+          - { value: detection, label: Detection, color: "#7c3aed" }
+          - { value: containment, label: Containment, color: "#e0a800" }
+          - { value: eradication, label: Eradication, color: "#1f7ae0" }
+          - { value: recovery, label: Recovery, color: "#2e7d32" }
+      source:    { type: string, placeholder: "EDR, firewall, interview…" }
+      description: { type: markdown, rows: 4 }
+      log:       { type: code, label: Log excerpt, language: plaintext }
+      evidence:  { type: screenshots, label: Screenshots }
+  iocs:
+    label: Indicators of Compromise
+    item_label: Indicator
+    layout: table
+    sort: type
+    icon: search
+    title_field: value
+    columns: [type, value, description, first_seen]
+    fields:
+      value: { type: string, label: Value, required: true }
+      type:
+        type: enum
+        required: true
+        options: [ip, domain, url, sha256, md5, email, filename, registry]
+      description: { type: string }
+      first_seen:  { type: datetime, label: First seen }
+  actions:
+    label: Remediation Actions
+    item_label: Action
+    prefix: "A-"
+    sort: due
+    chart: status
+    page_break: false
+    icon: tasklist
+    fields:
+      title:  { type: string, required: true }
+      owner:  { type: user }
+      due:    { type: date }
+      status:
+        type: enum
+        default: todo
+        options:
+          - { value: todo, label: To do, color: "#6b7280" }
+          - { value: in_progress, label: In progress, color: "#e0a800" }
+          - { value: done, label: Done, color: "#2e7d32" }
+      description: { type: markdown }

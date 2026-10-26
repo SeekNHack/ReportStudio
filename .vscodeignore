@@ -1,0 +1,14 @@
+**
+!dist/**
+!media/**
+!designs/**
+!syntaxes/**
+!snippets/**
+!schemas/**
+!package.json
+!README.md
+!LICENSE
+dist/**/*.map
+dist/cli.js
+!CHANGELOG.md
+media/vendor/*.map

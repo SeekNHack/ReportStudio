@@ -1,0 +1,4 @@
+.pdf-stage { overflow: auto; background: var(--vscode-editorWidget-background, #8882); }
+.sheets { display: flex; flex-direction: column; align-items: center; gap: 16px; padding: 24px; }
+.sheet { background: #fff; box-shadow: 0 1px 4px #0004, 0 4px 16px #0002; flex: none; }
+.sheet canvas { display: block; width: 100%; height: 100%; }

@@ -1,0 +1,127 @@
+# Blue team security analysis: alert triage, log analysis, investigation of suspicious activity.
+# Extends the generic "base" design, so no HTML is needed.
+name: Blue Team · Security Analysis
+description: SOC investigation of an alert or suspicious activity — data sources, observations with queries and screenshots, verdict and recommendations.
+extends: base
+
+theme:
+  accent: "#1d4ed8"
+  cover_start: "#0b1b3f"
+  cover_end: "#1d4ed8"
+  cover_kicker: Security Analysis
+
+report_fields:
+  title:          { default: Security Analysis Report }
+  case_id:        { type: string, label: Case / ticket ID, placeholder: SOC-2026-0412, group: Case, required: true }
+  analysis_type:
+    type: enum
+    label: Analysis type
+    group: Case
+    default: alert_triage
+    options:
+      - { value: alert_triage, label: Alert triage }
+      - { value: log_analysis, label: Log analysis }
+      - { value: investigation, label: Investigation }
+      - { value: threat_intel, label: Threat intelligence }
+  requested_by:   { type: user, label: Requested by, group: Case }
+  analysts:       { type: list, group: Case }
+  period_start:   { type: datetime, label: Analysed from, group: Case }
+  period_end:     { type: datetime, label: Analysed until, group: Case }
+  verdict:
+    type: enum
+    group: Verdict
+    required: true
+    options:
+      - { value: true_positive, label: True positive, color: "#c2185b" }
+      - { value: benign, label: Benign true positive, color: "#e0a800" }
+      - { value: false_positive, label: False positive, color: "#2e7d32" }
+      - { value: inconclusive, label: Inconclusive, color: "#6b7280" }
+  confidence:
+    type: enum
+    group: Verdict
+    options:
+      - { value: high, label: High }
+      - { value: medium, label: Medium }
+      - { value: low, label: Low }
+  executive_summary: { type: markdown, label: Executive summary, required: true, group: Analysis, rows: 8 }
+  trigger:        { type: markdown, label: Trigger / alert details, group: Analysis, help: "What started the analysis (alert, report, hunt)." }
+  data_sources:
+    type: table
+    label: Data sources
+    group: Analysis
+    section: before
+    columns:
+      source:  { type: string, required: true, placeholder: Microsoft Defender XDR }
+      type:    { type: string, placeholder: "EDR, SIEM, proxy…" }
+      period:  { type: string }
+      notes:   { type: string }
+  conclusion:     { type: markdown, group: Verdict, section: after }
+
+collections:
+  observations:
+    label: Observations
+    item_label: Observation
+    prefix: "O-"
+    sort: timestamp
+    icon: eye
+    page_break: false
+    chart: severity
+    description: Relevant facts found in the data, in chronological order.
+    fields:
+      title:      { type: string, required: true }
+      timestamp:  { type: datetime }
+      severity:
+        type: enum
+        options:
+          - { value: critical, label: Critical, color: "#c2185b" }
+          - { value: high, label: High, color: "#e8590c" }
+          - { value: medium, label: Medium, color: "#e0a800" }
+          - { value: low, label: Low, color: "#1f7ae0" }
+          - { value: info, label: Info, color: "#6b7280" }
+      host:       { type: string, label: Host / account }
+      source:     { type: string, label: Data source }
+      mitre:      { type: string, label: MITRE ATT&CK, placeholder: "T1059.001 PowerShell" }
+      details:    { type: markdown, required: true }
+      query:      { type: code, label: Query, language: sql, help: "KQL, SPL or SQL used to find it." }
+      evidence:   { type: screenshots, label: Screenshots }
+  iocs:
+    label: Indicators of Compromise
+    item_label: Indicator
+    layout: table
+    sort: type
+    icon: search
+    title_field: value
+    columns: [type, value, verdict, description]
+    fields:
+      value: { type: string, required: true }
+      type:
+        type: enum
+        required: true
+        options: [ip, domain, url, sha256, md5, email, filename, user_agent, registry]
+      verdict:
+        type: enum
+        options:
+          - { value: malicious, label: Malicious, color: "#c2185b" }
+          - { value: suspicious, label: Suspicious, color: "#e0a800" }
+          - { value: benign, label: Benign, color: "#2e7d32" }
+      description: { type: string }
+  recommendations:
+    label: Recommendations
+    item_label: Recommendation
+    prefix: "R-"
+    sort: priority
+    icon: lightbulb
+    layout: table
+    columns: [number, title, priority, owner, due]
+    fields:
+      title:    { type: string, required: true }
+      priority:
+        type: enum
+        default: medium
+        options:
+          - { value: high, label: High, color: "#c62828" }
+          - { value: medium, label: Medium, color: "#e0a800" }
+          - { value: low, label: Low, color: "#1f7ae0" }
+      owner:    { type: user }
+      due:      { type: date }
+      details:  { type: markdown }

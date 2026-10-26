@@ -1,0 +1,64 @@
+# Compliance / gap analysis audit (ISO 27001, NIST CSF, CIS, PCI DSS, GDPR, internal policies…).
+name: Compliance Audit
+description: Gap analysis against a framework — controls with status (compliant / partial / non-compliant), evidence, observations and remediation plan.
+extends: base
+
+theme:
+  accent: "#0f766e"
+  cover_start: "#042f2e"
+  cover_end: "#0d9488"
+  cover_kicker: Compliance Audit
+
+report_fields:
+  title:          { default: Compliance Audit Report }
+  framework:
+    type: enum
+    required: true
+    group: Audit
+    display: select
+    options:
+      - { value: iso27001, label: ISO/IEC 27001:2022 }
+      - { value: nist_csf, label: NIST CSF 2.0 }
+      - { value: cis, label: CIS Controls v8 }
+      - { value: pci_dss, label: PCI DSS 4.0 }
+      - { value: gdpr, label: GDPR }
+      - { value: nis2, label: NIS2 }
+      - { value: internal, label: Internal policy }
+  audit_start:    { type: date, label: Audit start, group: Audit }
+  audit_end:      { type: date, label: Audit end, group: Audit }
+  auditors:       { type: list, group: Audit }
+  auditees:       { type: list, label: Interviewed people, group: Audit }
+  executive_summary: { type: markdown, label: Executive summary, required: true, group: Summary, rows: 8 }
+  scope:          { type: markdown, required: true, group: Audit }
+  remediation_plan: { type: markdown, label: Remediation plan, group: Summary, section: after }
+
+collections:
+  controls:
+    label: Controls
+    item_label: Control
+    sort: manual
+    icon: checklist
+    chart: status
+    page_break: false
+    prefix: ""
+    fields:
+      control_id: { type: string, label: Control ID, required: true, placeholder: A.5.15 }
+      title:      { type: string, required: true, placeholder: Access control }
+      domain:     { type: string, placeholder: Organizational controls }
+      status:
+        type: enum
+        required: true
+        options:
+          - { value: compliant, label: Compliant, color: "#2e7d32" }
+          - { value: partial, label: Partially compliant, color: "#e0a800" }
+          - { value: non_compliant, label: Non-compliant, color: "#c62828" }
+          - { value: not_applicable, label: Not applicable, color: "#6b7280" }
+      priority:
+        type: enum
+        options:
+          - { value: high, label: High, color: "#c62828" }
+          - { value: medium, label: Medium, color: "#e0a800" }
+          - { value: low, label: Low, color: "#1f7ae0" }
+      observation: { type: markdown, required: true }
+      evidence:   { type: screenshots, help: "Screenshots of configurations, policies, tickets…" }
+      recommendation: { type: markdown }

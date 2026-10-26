@@ -1,0 +1,57 @@
+# Phishing / social engineering campaign report.
+name: Phishing Campaign
+description: Social engineering assessment — campaign results by department, phishing e-mails with screenshots and metrics, awareness recommendations.
+extends: base
+
+theme:
+  accent: "#a16207"
+  cover_start: "#2a1a03"
+  cover_end: "#ca8a04"
+  cover_kicker: Social Engineering
+
+report_fields:
+  title:          { default: Phishing Campaign Report }
+  campaign_start: { type: date, label: Campaign start, group: Campaign }
+  campaign_end:   { type: date, label: Campaign end, group: Campaign }
+  platform:       { type: string, placeholder: GoPhish, group: Campaign }
+  targets:        { type: number, label: Targeted users, group: Campaign }
+  executive_summary: { type: markdown, label: Executive summary, required: true, group: Results, rows: 8 }
+  results:
+    type: table
+    label: Results by department
+    group: Results
+    section: before
+    columns:
+      department: { type: string, required: true }
+      users:      { type: number }
+      opened:     { type: number }
+      clicked:    { type: number }
+      submitted:  { type: number, label: Credentials submitted }
+      reported:   { type: number }
+  recommendations: { type: markdown, group: Results, section: after }
+
+collections:
+  emails:
+    label: Phishing E-mails
+    item_label: E-mail
+    prefix: "P-"
+    sort: sent_at
+    icon: mail
+    page_break: false
+    fields:
+      title:      { type: string, label: Subject, required: true }
+      sent_at:    { type: datetime, label: Sent at }
+      lure:
+        type: enum
+        options:
+          - { value: invoice, label: Fake invoice, color: "#e8590c" }
+          - { value: hr, label: HR / payroll, color: "#1f7ae0" }
+          - { value: it, label: IT support, color: "#7c3aed" }
+          - { value: delivery, label: Parcel delivery, color: "#a16207" }
+          - { value: other, label: Other, color: "#6b7280" }
+      sender:     { type: string, label: Sender, placeholder: "it-support@acme-helpdesk.com" }
+      recipients: { type: number }
+      clicked:    { type: number }
+      submitted:  { type: number, label: Credentials submitted }
+      description: { type: markdown }
+      screenshots: { type: screenshots, help: E-mail and landing page. }

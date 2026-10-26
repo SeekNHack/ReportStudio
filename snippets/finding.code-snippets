@@ -1,0 +1,7 @@
+{
+  "Field section": { "prefix": "rs-field", "body": ["<!-- field:${1:description} -->", "$0"] },
+  "Placeholder": { "prefix": "rs-ph", "body": ["{{ ${1:report.client} }}"] },
+  "Mermaid": { "prefix": "rs-mermaid", "body": ["```mermaid", "flowchart LR", "  A --> B", "```"] },
+  "Code block": { "prefix": "rs-code", "body": ["```${1|http,bash,python,javascript,json,sql,powershell,yaml|} title=\"${2:file name}\" caption=\"${3:Caption}\"${4: lines}${5: highlight=\"2\"}", "$0", "```"], "description": "Code listing with file name, numbered caption, line numbers and highlighted lines" },
+  "Screenshot": { "prefix": "rs-shot", "body": ["![${1:Caption}${2:|75%}](${3:assets/screenshot.png})"], "description": "Numbered figure with caption; |75% sets the printed width" }
+}

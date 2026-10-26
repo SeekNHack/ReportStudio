@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="200" viewBox="0 0 640 200">
+  <rect width="640" height="200" fill="#1e1e2e"/>
+  <rect width="640" height="28" fill="#313244"/>
+  <circle cx="16" cy="14" r="5" fill="#f38ba8"/><circle cx="34" cy="14" r="5" fill="#f9e2af"/><circle cx="52" cy="14" r="5" fill="#a6e3a1"/>
+  <text x="20" y="62" font-family="monospace" font-size="14" fill="#a6e3a1">HTTP/1.1 500 Internal Server Error</text>
+  <text x="20" y="92" font-family="monospace" font-size="14" fill="#cdd6f4">{"error": "invalid input syntax for type integer:</text>
+  <text x="20" y="116" font-family="monospace" font-size="14" fill="#f38ba8">  \"PostgreSQL 15.4 on x86_64-pc-linux-gnu\""}</text>
+</svg>

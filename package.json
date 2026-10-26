@@ -1,0 +1,681 @@
+{
+  "name": "report-studio",
+  "displayName": "Report Studio",
+  "description": "Write any kind of report in VS Code — pentest, retest, incident response, audits — with configurable fields and collections, Nunjucks HTML designs, a graphical design and theme editor, live paged preview and PDF export.",
+  "version": "0.2.0",
+  "publisher": "report-studio",
+  "license": "MIT",
+  "icon": "media/icon.png",
+  "galleryBanner": {
+    "color": "#1f4e8c",
+    "theme": "dark"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/SeekNHack/report-studio.git"
+  },
+  "bugs": {
+    "url": "https://github.com/SeekNHack/report-studio/issues"
+  },
+  "homepage": "https://github.com/SeekNHack/report-studio#readme",
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Other",
+    "Visualization"
+  ],
+  "keywords": [
+    "report",
+    "pentest",
+    "incident response",
+    "blue team",
+    "sysreptor",
+    "pwndoc",
+    "pdf",
+    "template"
+  ],
+  "main": "./dist/extension.js",
+  "extensionKind": [
+    "workspace"
+  ],
+  "bin": {
+    "report-studio": "./dist/cli.js"
+  },
+  "activationEvents": [
+    "workspaceContains:**/report.yaml"
+  ],
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "reportStudio",
+          "title": "Report Studio",
+          "icon": "media/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "reportStudio": [
+        {
+          "id": "reportStudio.report",
+          "name": "Report"
+        },
+        {
+          "id": "reportStudio.findings",
+          "name": "Content"
+        },
+        {
+          "id": "reportStudio.library",
+          "name": "Library",
+          "visibility": "collapsed"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "reportStudio.report",
+        "contents": "No report project found in this workspace.\n[Create Report Project](command:reportStudio.newProject)\nA report project is a folder with a report.yaml, a findings/ folder and an assets/ folder.",
+        "when": "!reportStudio.hasProject"
+      },
+      {
+        "view": "reportStudio.findings",
+        "contents": "Nothing here yet.\n[Add Entry](command:reportStudio.newItem)\n[Insert from Library](command:reportStudio.insertFromLibrary)\nEntries are grouped in the collections defined by the design (findings, timeline events, indicators…).",
+        "when": "reportStudio.hasProject"
+      },
+      {
+        "view": "reportStudio.library",
+        "contents": "The library holds reusable findings (Markdown files) in a library/ folder of the workspace or in the folder set by reportStudio.libraryPath.\n[Save Current Finding to Library](command:reportStudio.saveToLibrary)"
+      }
+    ],
+    "customEditors": [
+      {
+        "viewType": "reportStudio.findingForm",
+        "displayName": "Finding Form",
+        "selector": [
+          {
+            "filenamePattern": "**/findings/*.md"
+          },
+          {
+            "filenamePattern": "**/library/*.md"
+          }
+        ],
+        "priority": "default"
+      },
+      {
+        "viewType": "reportStudio.reportForm",
+        "displayName": "Report Form",
+        "selector": [
+          {
+            "filenamePattern": "**/report.yaml"
+          }
+        ],
+        "priority": "default"
+      },
+      {
+        "viewType": "reportStudio.designEditor",
+        "displayName": "Design Editor",
+        "selector": [
+          {
+            "filenamePattern": "**/designs/*/design.yaml"
+          }
+        ],
+        "priority": "default"
+      }
+    ],
+    "commands": [
+      {
+        "command": "reportStudio.newProject",
+        "title": "New Report Project…",
+        "category": "Report Studio",
+        "icon": "$(new-folder)"
+      },
+      {
+        "command": "reportStudio.newFinding",
+        "title": "New Finding",
+        "category": "Report Studio",
+        "icon": "$(add)"
+      },
+      {
+        "command": "reportStudio.buildPdf",
+        "title": "Build PDF",
+        "category": "Report Studio",
+        "icon": "$(file-pdf)"
+      },
+      {
+        "command": "reportStudio.exportHtml",
+        "title": "Export HTML",
+        "category": "Report Studio",
+        "icon": "$(file-code)"
+      },
+      {
+        "command": "reportStudio.openPreview",
+        "title": "Open Live Preview",
+        "category": "Report Studio",
+        "icon": "$(open-preview)"
+      },
+      {
+        "command": "reportStudio.openReport",
+        "title": "Edit Report Details",
+        "category": "Report Studio",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "reportStudio.switchDesign",
+        "title": "Change Report Type…",
+        "category": "Report Studio",
+        "icon": "$(arrow-swap)"
+      },
+      {
+        "command": "reportStudio.newReportFrom",
+        "title": "New Report from This One (e.g. Retest)…",
+        "category": "Report Studio",
+        "icon": "$(repo-forked)"
+      },
+      {
+        "command": "reportStudio.exportData",
+        "title": "Export Data (Excel, CSV, JSON, SARIF)…",
+        "category": "Report Studio",
+        "icon": "$(table)"
+      },
+      {
+        "command": "reportStudio.copyDesign",
+        "title": "Copy Design to Workspace (customise)",
+        "category": "Report Studio",
+        "icon": "$(copy)"
+      },
+      {
+        "command": "reportStudio.selectProject",
+        "title": "Select Active Report Project…",
+        "category": "Report Studio"
+      },
+      {
+        "command": "reportStudio.refresh",
+        "title": "Refresh",
+        "category": "Report Studio",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "reportStudio.openFinding",
+        "title": "Open Finding",
+        "category": "Report Studio"
+      },
+      {
+        "command": "reportStudio.openAsText",
+        "title": "Open as Text",
+        "category": "Report Studio",
+        "icon": "$(go-to-file)"
+      },
+      {
+        "command": "reportStudio.duplicateFinding",
+        "title": "Duplicate",
+        "category": "Report Studio",
+        "icon": "$(copy)"
+      },
+      {
+        "command": "reportStudio.deleteFinding",
+        "title": "Delete",
+        "category": "Report Studio",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "reportStudio.toggleFixed",
+        "title": "Toggle Fixed",
+        "category": "Report Studio",
+        "icon": "$(pass)"
+      },
+      {
+        "command": "reportStudio.insertFromLibrary",
+        "title": "Insert Finding from Library…",
+        "category": "Report Studio",
+        "icon": "$(library)"
+      },
+      {
+        "command": "reportStudio.saveToLibrary",
+        "title": "Save Finding to Library",
+        "category": "Report Studio",
+        "icon": "$(save-as)"
+      },
+      {
+        "command": "reportStudio.newItem",
+        "title": "New Entry…",
+        "category": "Report Studio",
+        "icon": "$(add)"
+      },
+      {
+        "command": "reportStudio.newItemInCollection",
+        "title": "Add Entry",
+        "category": "Report Studio",
+        "icon": "$(add)"
+      },
+      {
+        "command": "reportStudio.newDesign",
+        "title": "New Design…",
+        "category": "Report Studio",
+        "icon": "$(symbol-color)"
+      },
+      {
+        "command": "reportStudio.editDesign",
+        "title": "Edit Design Fields",
+        "category": "Report Studio",
+        "icon": "$(settings-gear)"
+      },
+      {
+        "command": "reportStudio.insertLibraryItem",
+        "title": "Insert into Report",
+        "category": "Report Studio",
+        "icon": "$(arrow-right)"
+      },
+      {
+        "command": "reportStudio.openAsForm",
+        "title": "Open as Form",
+        "category": "Report Studio",
+        "icon": "$(preview)"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "reportStudio.buildPdf",
+          "when": "view == reportStudio.report && reportStudio.hasProject",
+          "group": "navigation@1"
+        },
+        {
+          "command": "reportStudio.openPreview",
+          "when": "view == reportStudio.report && reportStudio.hasProject",
+          "group": "navigation@2"
+        },
+        {
+          "command": "reportStudio.newProject",
+          "when": "view == reportStudio.report",
+          "group": "navigation@3"
+        },
+        {
+          "command": "reportStudio.newItem",
+          "when": "view == reportStudio.findings && reportStudio.hasProject",
+          "group": "navigation@1"
+        },
+        {
+          "command": "reportStudio.insertFromLibrary",
+          "when": "view == reportStudio.findings && reportStudio.hasProject",
+          "group": "navigation@2"
+        },
+        {
+          "command": "reportStudio.refresh",
+          "when": "view == reportStudio.findings || view == reportStudio.library",
+          "group": "navigation@9"
+        },
+        {
+          "command": "reportStudio.newDesign",
+          "when": "view == reportStudio.report",
+          "group": "1_design@1"
+        },
+        {
+          "command": "reportStudio.editDesign",
+          "when": "view == reportStudio.report && reportStudio.hasProject",
+          "group": "1_design@2"
+        },
+        {
+          "command": "reportStudio.exportData",
+          "when": "view == reportStudio.report && reportStudio.hasProject",
+          "group": "2_export@1"
+        },
+        {
+          "command": "reportStudio.newReportFrom",
+          "when": "view == reportStudio.report && reportStudio.hasProject",
+          "group": "1_design@3"
+        },
+        {
+          "command": "reportStudio.switchDesign",
+          "when": "view == reportStudio.report && reportStudio.hasProject",
+          "group": "1_design@4"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "reportStudio.toggleFixed",
+          "when": "view == reportStudio.findings && viewItem =~ /fixable/",
+          "group": "inline@1"
+        },
+        {
+          "command": "reportStudio.openAsText",
+          "when": "view == reportStudio.findings && viewItem =~ /^finding/",
+          "group": "1_open@1"
+        },
+        {
+          "command": "reportStudio.toggleFixed",
+          "when": "view == reportStudio.findings && viewItem =~ /fixable/",
+          "group": "2_edit@1"
+        },
+        {
+          "command": "reportStudio.duplicateFinding",
+          "when": "view == reportStudio.findings && viewItem =~ /^finding/",
+          "group": "2_edit@2"
+        },
+        {
+          "command": "reportStudio.saveToLibrary",
+          "when": "view == reportStudio.findings && viewItem =~ /^finding/",
+          "group": "2_edit@3"
+        },
+        {
+          "command": "reportStudio.deleteFinding",
+          "when": "view == reportStudio.findings && viewItem =~ /^finding/",
+          "group": "3_danger@1"
+        },
+        {
+          "command": "reportStudio.copyDesign",
+          "when": "view == reportStudio.report && viewItem == design",
+          "group": "inline@1"
+        },
+        {
+          "command": "reportStudio.switchDesign",
+          "when": "view == reportStudio.report && viewItem == design",
+          "group": "inline@2"
+        },
+        {
+          "command": "reportStudio.newItemInCollection",
+          "when": "view == reportStudio.findings && viewItem == collection",
+          "group": "inline@1"
+        },
+        {
+          "command": "reportStudio.editDesign",
+          "when": "view == reportStudio.report && viewItem == design",
+          "group": "inline@0"
+        },
+        {
+          "command": "reportStudio.insertLibraryItem",
+          "when": "view == reportStudio.library && viewItem == libraryEntry",
+          "group": "inline@1"
+        }
+      ],
+      "editor/title": [
+        {
+          "command": "reportStudio.openAsForm",
+          "when": "reportStudio.isItemFile && !activeCustomEditorId",
+          "group": "navigation@0"
+        },
+        {
+          "command": "reportStudio.openPreview",
+          "when": "activeCustomEditorId == reportStudio.findingForm || activeCustomEditorId == reportStudio.reportForm || reportStudio.isDesignFile",
+          "group": "navigation@1"
+        },
+        {
+          "command": "reportStudio.buildPdf",
+          "when": "activeCustomEditorId == reportStudio.findingForm || activeCustomEditorId == reportStudio.reportForm || reportStudio.isDesignFile || resourceFilename == report.yaml",
+          "group": "navigation@2"
+        },
+        {
+          "command": "reportStudio.openAsText",
+          "when": "activeCustomEditorId == reportStudio.findingForm || activeCustomEditorId == reportStudio.reportForm",
+          "group": "navigation@3"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "reportStudio.buildPdf",
+          "when": "resourceFilename == report.yaml",
+          "group": "reportStudio@1"
+        },
+        {
+          "command": "reportStudio.openPreview",
+          "when": "resourceFilename == report.yaml",
+          "group": "reportStudio@2"
+        },
+        {
+          "command": "reportStudio.exportData",
+          "when": "resourceFilename == report.yaml",
+          "group": "reportStudio@3"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "reportStudio.openFinding",
+          "when": "false"
+        },
+        {
+          "command": "reportStudio.duplicateFinding",
+          "when": "false"
+        },
+        {
+          "command": "reportStudio.deleteFinding",
+          "when": "false"
+        },
+        {
+          "command": "reportStudio.newItemInCollection",
+          "when": "false"
+        },
+        {
+          "command": "reportStudio.insertLibraryItem",
+          "when": "false"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "reportStudio.buildPdf",
+        "key": "ctrl+alt+b",
+        "mac": "cmd+alt+b",
+        "when": "reportStudio.hasProject"
+      },
+      {
+        "command": "reportStudio.openPreview",
+        "key": "ctrl+alt+p",
+        "mac": "cmd+alt+p",
+        "when": "reportStudio.hasProject"
+      },
+      {
+        "command": "reportStudio.newItem",
+        "key": "ctrl+alt+n",
+        "mac": "cmd+alt+n",
+        "when": "reportStudio.hasProject"
+      }
+    ],
+    "taskDefinitions": [
+      {
+        "type": "reportStudio",
+        "required": [
+          "format"
+        ],
+        "properties": {
+          "format": {
+            "type": "string",
+            "enum": [
+              "pdf",
+              "html"
+            ],
+            "description": "Output format"
+          },
+          "project": {
+            "type": "string",
+            "description": "Folder containing report.yaml (defaults to the active project)"
+          }
+        }
+      }
+    ],
+    "configuration": {
+      "title": "Report Studio",
+      "properties": {
+        "reportStudio.chromePath": {
+          "type": "string",
+          "default": "",
+          "description": "Path to Chrome, Chromium, Edge or Brave used to print PDFs. Leave empty to detect it automatically."
+        },
+        "reportStudio.outputDir": {
+          "type": "string",
+          "default": "out",
+          "description": "Output folder for PDF/HTML, relative to the report project."
+        },
+        "reportStudio.pdfViewer": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "builtin",
+            "system"
+          ],
+          "enumDescriptions": [
+            "Built-in viewer in code-server, the browser and remote windows; the system PDF app otherwise.",
+            "Always use the built-in viewer (with a Download button).",
+            "Always open the PDF with the system default app."
+          ],
+          "default": "auto",
+          "description": "How built PDFs are opened."
+        },
+        "reportStudio.openAfterBuild": {
+          "type": "boolean",
+          "default": true,
+          "description": "Open the PDF after it has been built."
+        },
+        "reportStudio.buildOnSave": {
+          "type": "boolean",
+          "default": false,
+          "description": "Rebuild the PDF whenever a file of the report project is saved."
+        },
+        "reportStudio.libraryPath": {
+          "type": "string",
+          "default": "",
+          "description": "Extra folder with reusable findings (Markdown files). The library/ folder of each workspace folder is always used."
+        },
+        "reportStudio.designsPath": {
+          "type": "string",
+          "default": "",
+          "description": "Extra folder with shared designs (one sub-folder per design)."
+        },
+        "reportStudio.preview.autoRefresh": {
+          "type": "boolean",
+          "default": true,
+          "description": "Refresh the live preview while typing."
+        }
+      }
+    },
+    "colors": [
+      {
+        "id": "reportStudio.critical",
+        "description": "Critical severity",
+        "defaults": {
+          "dark": "#ff5c7a",
+          "light": "#c2185b",
+          "highContrast": "#ff5c7a"
+        }
+      },
+      {
+        "id": "reportStudio.high",
+        "description": "High severity",
+        "defaults": {
+          "dark": "#ff8a4c",
+          "light": "#d84315",
+          "highContrast": "#ff8a4c"
+        }
+      },
+      {
+        "id": "reportStudio.medium",
+        "description": "Medium severity",
+        "defaults": {
+          "dark": "#f5c542",
+          "light": "#b7791f",
+          "highContrast": "#f5c542"
+        }
+      },
+      {
+        "id": "reportStudio.low",
+        "description": "Low severity",
+        "defaults": {
+          "dark": "#4fc3f7",
+          "light": "#0277bd",
+          "highContrast": "#4fc3f7"
+        }
+      },
+      {
+        "id": "reportStudio.info",
+        "description": "Informational severity",
+        "defaults": {
+          "dark": "#9e9e9e",
+          "light": "#616161",
+          "highContrast": "#bdbdbd"
+        }
+      },
+      {
+        "id": "reportStudio.fixed",
+        "description": "Fixed finding",
+        "defaults": {
+          "dark": "#66d17a",
+          "light": "#2e7d32",
+          "highContrast": "#66d17a"
+        }
+      }
+    ],
+    "grammars": [
+      {
+        "scopeName": "nunjucks.injection",
+        "path": "./syntaxes/nunjucks.injection.json",
+        "injectTo": [
+          "text.html.basic",
+          "text.html.markdown"
+        ]
+      }
+    ],
+    "snippets": [
+      {
+        "language": "html",
+        "path": "./snippets/template.code-snippets"
+      },
+      {
+        "language": "markdown",
+        "path": "./snippets/finding.code-snippets"
+      }
+    ],
+    "yamlValidation": [
+      {
+        "fileMatch": "**/designs/*/design.yaml",
+        "url": "./schemas/design.schema.json"
+      }
+    ],
+    "jsonValidation": [
+      {
+        "fileMatch": "**/designs/*/design.json",
+        "url": "./schemas/design.schema.json"
+      }
+    ]
+  },
+  "scripts": {
+    "build": "node esbuild.mjs",
+    "watch": "node esbuild.mjs --watch",
+    "typecheck": "tsc --noEmit -p .",
+    "test": "vitest run",
+    "test:e2e": "node test/e2e/run.mjs",
+    "render:example": "node dist/cli.js examples/demo-engagement",
+    "package": "npm run build -- --production && vsce package --no-dependencies",
+    "vscode:prepublish": "npm run build -- --production",
+    "publish": "vsce publish --no-dependencies"
+  },
+  "dependencies": {
+    "ae-cvss-calculator": "^1.0.13",
+    "highlight.js": "^11.12.0",
+    "markdown-it": "^15.0.3",
+    "mermaid": "^12.2.0",
+    "nunjucks": "^3.2.4",
+    "pagedjs": "^0.4.3",
+    "puppeteer-core": "^23.11.1",
+    "yaml": "^2.9.1"
+  },
+  "devDependencies": {
+    "@codemirror/autocomplete": "^6.20.4",
+    "@codemirror/commands": "^6.11.1",
+    "@codemirror/lang-markdown": "^6.5.2",
+    "@codemirror/language": "^6.13.1",
+    "@codemirror/state": "^6.7.6",
+    "@codemirror/view": "^6.43.15",
+    "@lezer/highlight": "^1.2.5",
+    "@types/markdown-it": "^14.2.0",
+    "@types/node": "^22.20.5",
+    "@types/nunjucks": "^3.2.6",
+    "@types/vscode": "^1.90.0",
+    "@vscode/codicons": "^0.0.46-24",
+    "@vscode/test-electron": "^3.1.0",
+    "@vscode/vsce": "^4.0.0",
+    "esbuild": "^0.28.2",
+    "pdfjs-dist": "^3.11.174",
+    "preact": "^11.0.2",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.5"
+  }
+}

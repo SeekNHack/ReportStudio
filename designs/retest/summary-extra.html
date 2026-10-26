@@ -1,0 +1,22 @@
+{# Added at the end of the executive summary of the pentest template. #}
+<h2>Retest Results</h2>
+{% if report.retest_date %}
+<p>The retest was performed on <strong>{{ report.retest_date | date }}</strong>{% if report.original_report %} against the findings of <em>{{ report.original_report }}</em>{% endif %}.
+{{ stats.fixed }} of {{ stats.total }} findings are solved{% if stats.partial %}, {{ stats.partial }} partially solved{% endif %}.</p>
+{% endif %}
+{{ report.retest_summary }}
+
+<div class="retest-chart">{{ status_chart('Retest results') }}</div>
+<table class="retest-table">
+    <thead><tr><th>#</th><th>Finding</th><th>Severity</th><th>Result</th></tr></thead>
+    <tbody>
+    {% for f in findings %}
+      <tr>
+        <td>{{ f.number }}</td>
+        <td><a href="#{{ f.anchor }}">{{ f.title }}</a></td>
+        <td>{{ badge(f.severity) }}</td>
+        <td>{% if f.raw.retest_status %}{{ render_field(f, 'retest_status') }}{% else %}<span class="badge" style="--badge:#6b7280">Not retested</span>{% endif %}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+</table>

@@ -1,0 +1,21 @@
+{# One whole collection, generic. Receives `c` (the collection). Used by base and pentest. #}
+{% set list = collections[c.id] %}
+<section class="chapter collection collection-{{ c.id }} layout-{{ c.layout }}{% if c.page_break %} page-break-items{% endif %}">
+  <h1>{{ c.label }}</h1>
+  {% if c.description %}<p class="muted">{{ c.description }}</p>{% endif %}
+  {% if c.chart and list | length %}<div class="collection-chart">{{ chart(list, c.chart, 'donut', field_label(c.id, c.chart), c.id) }}</div>{% endif %}
+  {% if not list | length %}
+    <p class="muted">No {{ c.label | lower }}.</p>
+  {% elif template_exists('collection-' + c.id + '.html') %}
+    {% include 'collection-' + c.id + '.html' %}
+  {% elif c.layout == 'table' %}
+    {{ item_table(list, (c.columns | join(',')) if c.columns else undefined, c.id) }}
+  {% elif c.layout == 'timeline' %}
+    {% set timeField = (fields_of(c.id, 'datetime,date') | first).id %}
+    {{ timeline(list, timeField or 'timestamp', c.id) }}
+  {% else %}
+    {% for item in list %}
+      {% if template_exists('item-' + c.id + '.html') %}{% include 'item-' + c.id + '.html' %}{% else %}{% include 'item.html' %}{% endif %}
+    {% endfor %}
+  {% endif %}
+</section>

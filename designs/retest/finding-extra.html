@@ -1,0 +1,11 @@
+{# Added at the end of every finding of the pentest template. #}
+{% set st = finding.raw.retest_status or 'not_tested' %}
+<div class="retest-box status-box-{{ st }}">
+  <div class="retest-head">
+    <span class="retest-label">Retest</span>
+    {% if finding.raw.retest_status %}{{ render_field(finding, 'retest_status') }}{% else %}<span class="badge" style="--badge:#6b7280">Not retested</span>{% endif %}
+    {% if finding.retest_date %}<span class="retest-date">{{ finding.retest_date | date }}</span>{% endif %}
+  </div>
+  {% if finding.raw.retest_notes %}{{ finding.retest_notes }}{% else %}<p class="muted">No retest notes.</p>{% endif %}
+  {{ render_field(finding, 'retest_evidence') }}
+</div>

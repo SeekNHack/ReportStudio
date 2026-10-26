@@ -1,0 +1,24 @@
+{
+  "scopeName": "nunjucks.injection",
+  "injectionSelector": "L:text.html -comment",
+  "patterns": [
+    { "name": "comment.block.nunjucks", "begin": "\\{#", "end": "#\\}" },
+    { "name": "meta.embedded.expression.nunjucks", "begin": "\\{\\{-?", "end": "-?\\}\\}",
+      "beginCaptures": { "0": { "name": "punctuation.definition.tag.nunjucks" } },
+      "endCaptures": { "0": { "name": "punctuation.definition.tag.nunjucks" } },
+      "patterns": [ { "include": "#expr" } ] },
+    { "name": "meta.embedded.block.nunjucks", "begin": "\\{%-?\\s*(\\w+)", "end": "-?%\\}",
+      "beginCaptures": { "0": { "name": "punctuation.definition.tag.nunjucks" }, "1": { "name": "keyword.control.nunjucks" } },
+      "endCaptures": { "0": { "name": "punctuation.definition.tag.nunjucks" } },
+      "patterns": [ { "include": "#expr" } ] }
+  ],
+  "repository": {
+    "expr": { "patterns": [
+      { "name": "string.quoted.nunjucks", "match": "'[^']*'|\"[^\"]*\"" },
+      { "name": "constant.numeric.nunjucks", "match": "\\b\\d+(\\.\\d+)?\\b" },
+      { "name": "keyword.operator.nunjucks", "match": "\\b(in|and|or|not|is|if|else)\\b|\\|" },
+      { "name": "entity.name.function.nunjucks", "match": "\\b\\w+(?=\\()" },
+      { "name": "variable.other.nunjucks", "match": "\\b[a-zA-Z_]\\w*\\b" }
+    ] }
+  }
+}

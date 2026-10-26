@@ -1,0 +1,30 @@
+design: incident-response
+title: Ransomware Incident Report
+client: Northwind Logistics
+incident_id: IR-2026-014
+incident_severity: sev1
+status: contained
+incident_type: Ransomware (LockBit variant)
+detected_at: 2026-10-03T02:14
+contained_at: 2026-10-03T09:40
+report_date: 2026-10-10
+version: "1.0"
+authors: [SOC Team]
+classification: strictly_confidential
+executive_summary: |
+  On **{{ report.detected_at | datetime }}** the SOC of {{ report.client }} detected mass file
+  encryption on the file server. The attacker entered through a VPN account without MFA.
+  {{ collections.events | length }} events were reconstructed and {{ collections.iocs | length }}
+  indicators of compromise were identified.
+affected_systems:
+  - { hostname: FS01, ip: 10.0.1.20, role: File server, impact: encrypted }
+  - { hostname: DC01, ip: 10.0.1.5, role: Domain controller, impact: compromised }
+  - { hostname: WS-0142, ip: 10.0.3.142, role: Workstation, impact: suspicious }
+root_cause: |
+  The VPN account `svc-backup` had a weak password and no MFA. Credentials were found in a
+  public breach dump.
+lessons_learned: |
+  - Service accounts must not be allowed on the VPN.
+  - EDR alerts outside business hours need an on-call escalation.
+recommendations: |
+  Enforce MFA on all remote access, rotate privileged credentials and segment backups.

@@ -1,0 +1,19 @@
+{# Status overview after the executive summary. #}
+<section class="chapter">
+  <h1>Incident at a Glance</h1>
+  <div class="summary-grid">
+    {{ chart(events, 'phase', 'donut', 'Timeline events by phase') }}
+    <div class="summary-counts">
+      <div class="count-card" style="--c: var(--accent)"><span class="count-number">{{ events | length }}</span><span class="count-label">Events</span></div>
+      <div class="count-card" style="--c: #c2185b"><span class="count-number">{{ iocs | length }}</span><span class="count-label">Indicators</span></div>
+      <div class="count-card" style="--c: #e8590c"><span class="count-number">{{ report.raw.affected_systems | length }}</span><span class="count-label">Systems</span></div>
+      <div class="count-card" style="--c: #2e7d32"><span class="count-number">{{ actions | where('status', 'done') | length }}/{{ actions | length }}</span><span class="count-label">Actions done</span></div>
+    </div>
+  </div>
+  <table class="info-table">
+    <tr><th>Status</th><td>{{ render_field(report, 'status') }}</td></tr>
+    <tr><th>Severity</th><td>{{ render_field(report, 'incident_severity') }}</td></tr>
+    {% if report.raw.detected_at %}<tr><th>Detected</th><td>{{ report.raw.detected_at | datetime }}</td></tr>{% endif %}
+    {% if report.raw.contained_at %}<tr><th>Contained</th><td>{{ report.raw.contained_at | datetime }}</td></tr>{% endif %}
+  </table>
+</section>

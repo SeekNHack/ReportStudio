@@ -1,0 +1,8 @@
+{
+  "For each finding": { "prefix": "rs-for-findings", "body": ["{% for finding in findings %}", "  <h2>{{ finding.number }} {{ finding.title }}</h2>", "  {{ finding.description }}", "  $0", "{% endfor %}"] },
+  "If fixed": { "prefix": "rs-if-fixed", "body": ["{% if finding.is_fixed %}$1{% else %}$2{% endif %}"] },
+  "Page break": { "prefix": "rs-pagebreak", "body": ["{{ pagebreak() }}"] },
+  "Table of contents": { "prefix": "rs-toc", "body": ["{{ toc(${1:2}) }}"] },
+  "Severity chart": { "prefix": "rs-chart", "body": ["{{ severity_chart('${1|donut,bar|}', '${2:Findings by severity}') }}"] },
+  "Finding table": { "prefix": "rs-finding-table", "body": ["{{ finding_table() }}"] }
+}

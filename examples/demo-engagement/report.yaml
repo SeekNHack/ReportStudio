@@ -1,0 +1,46 @@
+# Report project. Open this file to edit it with the form, or edit it here.
+design: retest
+title: Web Application Retest
+client: ACME Corp
+target: https://shop.acme.example
+version: "1.1"
+report_date: 2026-10-20
+classification: confidential
+language: en
+authors:
+  - Jane Doe
+  - John Smith
+start_date: 2026-09-01
+end_date: 2026-09-12
+retest_date: 2026-10-18
+original_report: Penetration Test Report v1.0 (2026-09-15)
+scope: |
+  The following assets were in scope:
+
+  | Asset | Type | Environment |
+  |---|---|---|
+  | `https://shop.acme.example` | Web application | Staging |
+  | `https://api.acme.example/v2` | REST API | Staging |
+
+  Testing was performed from the Internet with two user accounts (`customer`, `admin`).
+executive_summary: |
+  {{ report.client }} engaged us to assess the security of **{{ report.target }}**.
+  The assessment identified **{{ stats.total }} vulnerabilities**, of which
+  {{ stats.counts.critical }} critical and {{ stats.counts.high }} high.
+
+  The most relevant issue allows an unauthenticated attacker to read the whole
+  customer database through a SQL injection in the login form.
+retest_summary: |
+  {{ stats.fixed }} of {{ stats.total }} findings have been fixed. The remaining
+  issues are tracked below with the evidence collected during the retest.
+
+  ```mermaid
+  flowchart LR
+    A[Pentest v1.0] --> B[Remediation]
+    B --> C[Retest]
+    C -->|fixed| D[Closed]
+    C -->|open| B
+  ```
+conclusion: |
+  The overall security posture improved significantly after remediation.
+  We recommend addressing the remaining open findings before go-live.

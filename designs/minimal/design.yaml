@@ -1,0 +1,15 @@
+# Minimal one-file design: a good starting point to write your own.
+name: Minimal
+description: Plain single-column report, no cover. Easy to start from.
+
+report_fields:
+  title:   { type: string, required: true, default: Security Assessment }
+  client:  { type: string }
+  report_date: { type: date }
+  summary: { type: markdown }
+
+finding_fields:
+  title:       { type: string, required: true }
+  cvss:        { type: cvss, label: CVSS }
+  description: { type: markdown, required: true }
+  recommendation: { type: markdown }

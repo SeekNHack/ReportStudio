@@ -1,0 +1,18 @@
+{# One entry of a collection. Available: `item` (the entry) and `c` (the collection). #}
+<article class="item item-{{ c.id }}" id="{{ item.anchor }}" data-finding="{{ item.id }}"{% if item.severity_color %} style="--sev: {{ item.severity_color }}"{% endif %}>
+  <h2 class="item-title">{% if c.prefix %}<span class="item-number">{{ item.number }}</span> {% endif %}{{ item.title }}</h2>
+
+  {% set meta = item_fields(item, 'meta') %}
+  {% if meta | length %}
+  <table class="finding-meta">
+    {% for f in meta %}<tr><th>{{ f.label }}</th><td>{{ render_field(item, f.id) }}</td></tr>{% endfor %}
+  </table>
+  {% endif %}
+
+  {% for f in item_fields(item, 'body') %}
+  <h3 class="unnumbered no-toc">{{ f.label }}</h3>
+  {{ render_field(item, f.id) }}
+  {% endfor %}
+
+  {% include "item-extra.html" ignore missing %}
+</article>

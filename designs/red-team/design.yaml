@@ -1,0 +1,72 @@
+# Red team engagement: objectives, attack path (with detection by the blue team) and findings.
+name: Red Team Engagement
+description: Objective-based adversary simulation — objectives and results, attack path mapped to ATT&CK with blue team detection, findings and lessons for the SOC.
+extends: pentest
+
+theme:
+  accent: "#be123c"
+  cover_start: "#1a0509"
+  cover_end: "#be123c"
+  cover_kicker: Red Team Engagement
+
+report_fields:
+  title:        { default: Red Team Engagement Report }
+  threat_actor: { type: string, label: Emulated threat actor, placeholder: FIN7, group: Engagement }
+  rules_of_engagement: { type: markdown, label: Rules of engagement, group: Engagement }
+  detection_summary: { type: markdown, label: Detection and response, group: Summary, section: after, help: How the blue team detected and responded. }
+  methodology:
+    default: |
+      The engagement followed an objective-based approach emulating a realistic threat actor,
+      mapped to the MITRE ATT&CK framework. The blue team was not informed in advance.
+
+collections:
+  objectives:
+    label: Objectives
+    item_label: Objective
+    prefix: "OBJ-"
+    layout: table
+    icon: target
+    sort: manual
+    columns: [number, title, result, achieved_at]
+    fields:
+      title:       { type: string, required: true }
+      result:
+        type: enum
+        default: not_achieved
+        options:
+          - { value: achieved, label: Achieved, color: "#c2185b" }
+          - { value: partial, label: Partially achieved, color: "#e0a800" }
+          - { value: not_achieved, label: Not achieved, color: "#2e7d32" }
+      achieved_at: { type: datetime, label: Achieved at }
+      notes:       { type: markdown }
+  attack_path:
+    label: Attack Path
+    item_label: Step
+    layout: timeline
+    sort: timestamp
+    icon: debug-step-over
+    chart: detected
+    fields:
+      timestamp: { type: datetime, required: true }
+      title:     { type: string, required: true }
+      tactic:
+        type: enum
+        display: select
+        options:
+          - { value: reconnaissance, label: Reconnaissance, color: "#64748b" }
+          - { value: initial_access, label: Initial access, color: "#c2185b" }
+          - { value: execution, label: Execution, color: "#e8590c" }
+          - { value: persistence, label: Persistence, color: "#a16207" }
+          - { value: privilege_escalation, label: Privilege escalation, color: "#be123c" }
+          - { value: defense_evasion, label: Defense evasion, color: "#7c3aed" }
+          - { value: credential_access, label: Credential access, color: "#db2777" }
+          - { value: discovery, label: Discovery, color: "#0891b2" }
+          - { value: lateral_movement, label: Lateral movement, color: "#1f7ae0" }
+          - { value: command_and_control, label: Command and control, color: "#0f766e" }
+          - { value: exfiltration, label: Exfiltration, color: "#15803d" }
+          - { value: impact, label: Impact, color: "#991b1b" }
+      technique: { type: string, label: Technique, placeholder: "T1566.001 Spearphishing Attachment" }
+      detected:  { type: boolean, label: Detected by blue team }
+      description: { type: markdown, rows: 4 }
+      command:   { type: code, label: Command, language: powershell }
+      evidence:  { type: screenshots }

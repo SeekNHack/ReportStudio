@@ -1,0 +1,54 @@
+{#
+  Generic template: prints everything declared in design.yaml.
+
+  Override any part by adding a file with the same name to your design:
+    cover.html                 the cover page
+    item.html                  one entry of any collection
+    item-<collection>.html     one entry of a specific collection (e.g. item-events.html)
+    collection-<id>.html       a whole collection (receives `c` and `list`)
+    summary-extra.html         after the "before" chapters
+
+  Helpers: report_fields_in('before'|'after'|'details', report), item_fields(item, 'meta'|'body'),
+           render_field(obj, 'field'), item_table(list), timeline(list, 'timestamp'),
+           chart(list, 'field', 'donut'|'bar'), count_by(list, 'field'), toc(), pagebreak(),
+           badge(), ref('id'), field_label('report'|<collection>, 'field'), fields_of(...)
+#}
+{% include "cover.html" %}
+
+<section class="front-matter">
+  <span class="running-title">{{ report.client }}{% if report.client %} · {% endif %}{{ report.title }}</span>
+  <span class="running-classification">{{ report.display.classification }}</span>
+  {{ toc(2) }}
+</section>
+
+{% set details = report_fields_in('details', report) %}
+{% if details | length %}
+<section class="chapter document-info">
+  <h1>Document Information</h1>
+  <table class="info-table">
+    {% for f in details %}
+    <tr><th>{{ f.label }}</th><td>{{ render_field(report, f.id) }}</td></tr>
+    {% endfor %}
+  </table>
+</section>
+{% endif %}
+
+{% for f in report_fields_in('before', report) %}
+<section class="chapter report-field report-field-{{ f.id }}">
+  <h1>{{ f.label }}</h1>
+  {{ render_field(report, f.id) }}
+</section>
+{% endfor %}
+
+{% include "summary-extra.html" ignore missing %}
+
+{% for c in design.collections %}
+  {% include "collection.html" %}
+{% endfor %}
+
+{% for f in report_fields_in('after', report) %}
+<section class="chapter report-field report-field-{{ f.id }}">
+  <h1>{{ f.label }}</h1>
+  {{ render_field(report, f.id) }}
+</section>
+{% endfor %}

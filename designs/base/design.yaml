@@ -1,0 +1,49 @@
+# Generic base design.
+#
+# Its template prints every report field and every collection automatically, so a
+# design that `extends: base` only needs fields and collections — no HTML required.
+#
+# Report fields: any type (string, text, markdown, number, boolean, enum, date, datetime,
+# list, table, cvss, image, user). Option `section` decides where generic templates print it:
+#   before  = own chapter before the collections (default for markdown)
+#   after   = own chapter after the collections
+#   details = "Document information" table (default for the other types)
+#   none    = not printed (still usable as {{ report.<id> }})
+#
+# Collections are repeatable entries, one Markdown file each in a folder with the same
+# name (findings/, events/, iocs/ …). Options: label, item_label, prefix, sort,
+# title_field, layout (sections | table | timeline), columns, icon, fields.
+name: Generic Report
+description: Cover, table of contents, report fields and every collection — fully driven by design.yaml.
+
+theme:
+  accent: "#3b3fd8"
+  cover_layout: gradient
+  cover_start: "#14183a"
+  cover_end: "#3b3fd8"
+
+report_fields:
+  title:          { type: string, label: Report title, required: true, group: General, section: none }
+  subtitle:       { type: string, group: General, section: none }
+  client:         { type: string, label: Client / organisation, group: General, section: none }
+  version:        { type: string, default: "1.0", group: General }
+  report_date:    { type: date, label: Report date, group: General }
+  classification:
+    type: enum
+    default: confidential
+    group: General
+    section: none
+    options: [public, internal, confidential, strictly_confidential]
+  language:
+    type: enum
+    default: en
+    group: General
+    section: none
+    help: Used for date formatting.
+    options:
+      - { value: en, label: English }
+      - { value: it, label: Italiano }
+      - { value: de, label: Deutsch }
+      - { value: fr, label: Français }
+      - { value: es, label: Español }
+  authors:        { type: list, group: General }

@@ -1,0 +1,31 @@
+# Secure code review: findings point to a file and line, with vulnerable and fixed code.
+name: Secure Code Review
+description: Source code security review — repository and commit, findings with file/line, vulnerable code, suggested fix and CWE.
+extends: pentest
+
+theme:
+  accent: "#15803d"
+  cover_start: "#052e16"
+  cover_end: "#15803d"
+  cover_kicker: Secure Code Review
+
+report_fields:
+  title:        { default: Secure Code Review }
+  target:       { label: Repository, placeholder: "github.com/acme/shop-api" }
+  commit:       { type: string, label: Commit / tag, placeholder: "a1b2c3d (v2.4.0)", group: Engagement }
+  languages:    { type: list, label: Languages / frameworks, group: Engagement }
+  loc:          { type: number, label: Lines of code reviewed, group: Engagement }
+  methodology:
+    default: |
+      The code base was reviewed manually with the support of static analysis tools,
+      following the OWASP Code Review Guide and the OWASP ASVS requirements.
+
+finding_fields:
+  affected:     { label: Affected files }
+  file:         { type: string, label: File, group: Overview, placeholder: src/auth/login.ts }
+  line:         { type: string, label: Line(s), group: Overview, placeholder: "42-57" }
+  proof_of_concept: null
+  request:      null
+  vulnerable_code: { type: code, label: Vulnerable code, group: Details, lines: true, help: "Paste the snippet; use \"Mark\" to highlight the vulnerable lines." }
+  fixed_code:   { type: code, label: Suggested fix, group: Remediation, lines: true }
+  evidence:     { group: Details }

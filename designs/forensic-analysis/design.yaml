@@ -1,0 +1,104 @@
+# Digital forensics (DFIR) report: evidence with chain of custody, artifacts and timeline.
+name: Blue Team · Forensic Analysis
+description: DFIR case report — acquired evidence with hashes, chain of custody, forensic artifacts with screenshots, timeline and conclusions.
+extends: base
+
+theme:
+  accent: "#334155"
+  cover_start: "#0f172a"
+  cover_end: "#475569"
+  cover_kicker: Digital Forensics
+
+report_fields:
+  title:          { default: Forensic Analysis Report }
+  case_id:        { type: string, label: Case number, required: true, placeholder: DFIR-2026-031, group: Case }
+  requested_by:   { type: user, label: Requested by, group: Case }
+  examiners:      { type: list, group: Case }
+  legal_hold:     { type: boolean, label: Legal hold, group: Case }
+  questions:      { type: markdown, label: Questions to answer, required: true, group: Case, help: The questions the analysis must answer (scope of the examination). }
+  executive_summary: { type: markdown, label: Executive summary, required: true, group: Summary, rows: 8 }
+  methodology:
+    type: markdown
+    group: Summary
+    default: |
+      Evidence was acquired with write blockers and verified with SHA-256 hashes.
+      Analysis was performed on working copies only; the originals were sealed.
+  tools:
+    type: table
+    label: Tools
+    group: Summary
+    section: before
+    columns:
+      tool:    { type: string, required: true }
+      version: { type: string }
+      purpose: { type: string }
+  custody:
+    type: table
+    label: Chain of custody
+    group: Evidence
+    section: after
+    columns:
+      when:     { type: datetime, required: true }
+      evidence: { type: string, label: Evidence ID }
+      action:   { type: string, placeholder: "Acquired, transferred, sealed…" }
+      from:     { type: string }
+      to:       { type: string }
+  conclusions:    { type: markdown, required: true, group: Summary, section: after }
+
+collections:
+  evidence:
+    label: Evidence
+    item_label: Evidence item
+    prefix: "E-"
+    sort: manual
+    icon: package
+    layout: table
+    columns: [number, title, type, acquired_at, sha256]
+    fields:
+      title:       { type: string, label: Description, required: true, placeholder: "Laptop HD-0042, Samsung SSD 512 GB" }
+      type:
+        type: enum
+        options: [disk_image, memory_dump, mobile, logs, cloud_export, network_capture, other]
+      acquired_at: { type: datetime, label: Acquired }
+      acquired_by: { type: user, label: Acquired by }
+      tool:        { type: string, label: Acquisition tool }
+      sha256:      { type: string, label: SHA-256 }
+      notes:       { type: markdown }
+  artifacts:
+    label: Findings
+    item_label: Artifact
+    prefix: "A-"
+    sort: timestamp
+    icon: search
+    page_break: false
+    fields:
+      title:     { type: string, required: true }
+      timestamp: { type: datetime }
+      evidence:  { type: string, label: Evidence ID, placeholder: E-01 }
+      location:  { type: string, label: Path / location }
+      relevance:
+        type: enum
+        options:
+          - { value: high, label: High, color: "#c62828" }
+          - { value: medium, label: Medium, color: "#e0a800" }
+          - { value: low, label: Low, color: "#6b7280" }
+      description: { type: markdown, required: true }
+      output:    { type: code, label: Tool output, language: plaintext }
+      screenshots: { type: screenshots }
+  events:
+    label: Timeline
+    item_label: Event
+    layout: timeline
+    sort: timestamp
+    icon: history
+    fields:
+      timestamp: { type: datetime, required: true }
+      title:     { type: string, required: true }
+      category:
+        type: enum
+        options:
+          - { value: user, label: User activity, color: "#1f7ae0" }
+          - { value: malware, label: Malware, color: "#c2185b" }
+          - { value: system, label: System, color: "#6b7280" }
+          - { value: network, label: Network, color: "#7c3aed" }
+      description: { type: markdown, rows: 3 }

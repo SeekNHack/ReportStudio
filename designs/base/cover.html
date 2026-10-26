@@ -1,0 +1,20 @@
+{# Cover page. Layout, colors, logo and image come from the Theme editor. #}
+<section class="cover cover--{{ theme.cover_layout }}"{% if theme.cover_image_url %} style="--cover-image: url('{{ theme.cover_image_url }}')"{% endif %}>
+  <img class="cover-logo" src="{{ theme.logo_url or asset('logo.svg') }}" alt="">
+  {% if report.display.classification %}<div class="cover-classification">{{ report.display.classification }}</div>{% endif %}
+  <div class="cover-main">
+    <div class="cover-kicker">{{ theme.cover_kicker or design.name }}</div>
+    <div class="cover-title">{{ report.title }}</div>
+    {% if report.client %}<div class="cover-client">{{ report.client }}</div>{% endif %}
+    {% if report.subtitle %}<div class="cover-target">{{ report.subtitle }}</div>{% endif %}
+    {% if report.target %}<div class="cover-target">{{ report.target }}</div>{% endif %}
+  </div>
+  {% if theme.cover_meta %}
+  <table class="cover-meta">
+    <tr><th>Date</th><td>{{ (report.raw.report_date or now) | date }}</td></tr>
+    {% if report.version %}<tr><th>Version</th><td>{{ report.version }}</td></tr>{% endif %}
+    {% if report.authors %}<tr><th>Authors</th><td>{{ report.authors | join(', ') }}</td></tr>{% endif %}
+    {% if report.start_date %}<tr><th>Period</th><td>{{ report.start_date | date }} – {{ report.end_date | date }}</td></tr>{% endif %}
+  </table>
+  {% endif %}
+</section>

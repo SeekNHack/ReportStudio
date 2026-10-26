@@ -1,0 +1,76 @@
+# Threat hunting report: one entry per hypothesis, with the hunting query and the outcome.
+name: Blue Team · Threat Hunting
+description: Hypothesis-driven hunt — hypotheses with ATT&CK techniques, queries, outcome, detection gaps and new detection rules.
+extends: base
+
+theme:
+  accent: "#7c3aed"
+  cover_start: "#1e1038"
+  cover_end: "#7c3aed"
+  cover_kicker: Threat Hunting
+
+report_fields:
+  title:          { default: Threat Hunting Report }
+  hunt_id:        { type: string, label: Hunt ID, placeholder: TH-2026-07, group: Hunt }
+  hunt_start:     { type: date, label: Hunt start, group: Hunt }
+  hunt_end:       { type: date, label: Hunt end, group: Hunt }
+  hunters:        { type: list, group: Hunt }
+  environment:    { type: string, placeholder: "Corporate endpoints (2 300), AD, Azure", group: Hunt }
+  executive_summary: { type: markdown, label: Executive summary, required: true, group: Summary, rows: 8 }
+  threat_context: { type: markdown, label: Threat context, group: Summary, help: Threat intelligence or event that motivated the hunt. }
+  data_sources:   { type: list, label: Data sources, group: Hunt }
+  detection_gaps: { type: markdown, label: Detection gaps, group: Results, section: after }
+  next_steps:     { type: markdown, label: Next steps, group: Results, section: after }
+
+collections:
+  hypotheses:
+    label: Hypotheses
+    item_label: Hypothesis
+    prefix: "H-"
+    sort: manual
+    icon: beaker
+    chart: outcome
+    page_break: false
+    fields:
+      title:       { type: string, label: Hypothesis, required: true, placeholder: Attackers use LOLBins to download payloads }
+      technique:   { type: string, label: MITRE ATT&CK, placeholder: "T1105 Ingress Tool Transfer" }
+      tactic:
+        type: enum
+        label: Tactic
+        display: select
+        options: [reconnaissance, resource_development, initial_access, execution, persistence, privilege_escalation, defense_evasion, credential_access, discovery, lateral_movement, collection, command_and_control, exfiltration, impact]
+      outcome:
+        type: enum
+        required: true
+        default: in_progress
+        options:
+          - { value: confirmed, label: Confirmed (malicious), color: "#c2185b" }
+          - { value: suspicious, label: Suspicious, color: "#e0a800" }
+          - { value: refuted, label: Refuted (clean), color: "#2e7d32" }
+          - { value: inconclusive, label: Inconclusive, color: "#6b7280" }
+          - { value: in_progress, label: In progress, color: "#1f7ae0" }
+      data_source: { type: string, label: Data source }
+      rationale:   { type: markdown, help: Why this hypothesis is plausible in this environment. }
+      query:       { type: code, label: Hunting query, language: sql }
+      results:     { type: markdown, required: true }
+      evidence:    { type: screenshots, label: Screenshots }
+  detections:
+    label: New Detections
+    item_label: Detection rule
+    prefix: "D-"
+    icon: shield
+    page_break: false
+    fields:
+      title:    { type: string, label: Rule name, required: true }
+      platform:
+        type: enum
+        options: [sigma, kql, spl, yara, suricata, eql, other]
+      status:
+        type: enum
+        default: proposed
+        options:
+          - { value: proposed, label: Proposed, color: "#6b7280" }
+          - { value: testing, label: Testing, color: "#e0a800" }
+          - { value: deployed, label: Deployed, color: "#2e7d32" }
+      description: { type: markdown }
+      rule:     { type: code, label: Rule, language: yaml }

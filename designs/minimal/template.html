@@ -1,0 +1,27 @@
+{# Minimal template: edit freely. See designs/pentest/template.html for every helper. #}
+<header class="head">
+  <h1 class="unnumbered no-toc">{{ report.title }}</h1>
+  <p class="muted">{{ report.client }}{% if report.report_date %} · {{ report.report_date | date }}{% endif %}</p>
+</header>
+
+{{ toc(2) }}
+
+<h1>Summary</h1>
+{{ report.summary }}
+{{ severity_chart('bar') }}
+{{ finding_table() }}
+
+<h1>Findings</h1>
+{% for finding in findings %}
+<section class="finding" id="{{ finding.anchor }}" data-finding="{{ finding.id }}">
+  <h2>{{ finding.number }} {{ finding.title }} {{ badge(finding.severity) }}</h2>
+  {% if finding.cvss_vector %}<p class="mono">CVSS {{ finding.score }} · {{ finding.cvss_vector }}</p>{% endif %}
+  {# Renders every Markdown field declared in design.yaml, in order #}
+  {% for field in design.finding_fields %}
+    {% if field.type == 'markdown' and finding.raw[field.id] %}
+      <h3 class="unnumbered no-toc">{{ field.label }}</h3>
+      {{ finding[field.id] }}
+    {% endif %}
+  {% endfor %}
+</section>
+{% endfor %}
