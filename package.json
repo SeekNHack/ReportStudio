@@ -2,7 +2,7 @@
   "name": "report-studio",
   "displayName": "Report Studio",
   "description": "Write security and IT reports in VS Code like SysReptor and PwnDoc: pentest, retest, incident response, forensics, audits. Configurable fields, live paged preview, PDF export, screenshot annotation and Excel/CSV/JSON/SARIF export.",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "publisher": "hacknseek",
   "license": "MIT",
   "icon": "media/icon.png",
@@ -65,8 +65,12 @@
     "views": {
       "reportStudio": [
         {
+          "id": "reportStudio.workspace",
+          "name": "Workspace"
+        },
+        {
           "id": "reportStudio.report",
-          "name": "Report"
+          "name": "Active Report"
         },
         {
           "id": "reportStudio.findings",
@@ -82,7 +86,7 @@
     "viewsWelcome": [
       {
         "view": "reportStudio.report",
-        "contents": "No report project found in this workspace.\n[Create Report Project](command:reportStudio.newProject)\nA report project is a folder with a report.yaml, a findings/ folder and an assets/ folder.",
+        "contents": "No engagement yet. Start from the home: browse the templates, make your own (HTML included), then create the engagement.\n[Open Home](command:reportStudio.openHome)\n[New Engagement](command:reportStudio.newProject)",
         "when": "!reportStudio.hasProject"
       },
       {
@@ -132,10 +136,40 @@
     ],
     "commands": [
       {
-        "command": "reportStudio.newProject",
-        "title": "New Report Project…",
+        "command": "reportStudio.openHome",
+        "title": "Open Home",
         "category": "Report Studio",
-        "icon": "$(new-folder)"
+        "icon": "$(home)"
+      },
+      {
+        "command": "reportStudio.openEngagement",
+        "title": "Open Engagement",
+        "category": "Report Studio",
+        "icon": "$(go-to-file)"
+      },
+      {
+        "command": "reportStudio.editTemplate",
+        "title": "Edit Template…",
+        "category": "Report Studio",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "reportStudio.previewTemplate",
+        "title": "Preview Template with Sample Data…",
+        "category": "Report Studio",
+        "icon": "$(open-preview)"
+      },
+      {
+        "command": "reportStudio.importTemplate",
+        "title": "Import Templates…",
+        "category": "Report Studio",
+        "icon": "$(cloud-download)"
+      },
+      {
+        "command": "reportStudio.newProject",
+        "title": "New Engagement…",
+        "category": "Report Studio",
+        "icon": "$(add)"
       },
       {
         "command": "reportStudio.newFinding",
@@ -187,13 +221,13 @@
       },
       {
         "command": "reportStudio.copyDesign",
-        "title": "Copy Design to Workspace (customise)",
+        "title": "Copy Template with HTML and CSS…",
         "category": "Report Studio",
         "icon": "$(copy)"
       },
       {
         "command": "reportStudio.selectProject",
-        "title": "Select Active Report Project…",
+        "title": "Select Active Engagement…",
         "category": "Report Studio"
       },
       {
@@ -257,13 +291,13 @@
       },
       {
         "command": "reportStudio.newDesign",
-        "title": "New Design…",
+        "title": "New Template…",
         "category": "Report Studio",
         "icon": "$(symbol-color)"
       },
       {
         "command": "reportStudio.editDesign",
-        "title": "Edit Design Fields",
+        "title": "Edit Template of This Report",
         "category": "Report Studio",
         "icon": "$(settings-gear)"
       },
@@ -283,6 +317,31 @@
     "menus": {
       "view/title": [
         {
+          "command": "reportStudio.openHome",
+          "when": "view == reportStudio.workspace",
+          "group": "navigation@1"
+        },
+        {
+          "command": "reportStudio.newDesign",
+          "when": "view == reportStudio.workspace",
+          "group": "navigation@2"
+        },
+        {
+          "command": "reportStudio.importTemplate",
+          "when": "view == reportStudio.workspace",
+          "group": "1_templates@1"
+        },
+        {
+          "command": "reportStudio.previewTemplate",
+          "when": "view == reportStudio.workspace",
+          "group": "1_templates@2"
+        },
+        {
+          "command": "reportStudio.refresh",
+          "when": "view == reportStudio.workspace",
+          "group": "navigation@9"
+        },
+        {
           "command": "reportStudio.buildPdf",
           "when": "view == reportStudio.report && reportStudio.hasProject",
           "group": "navigation@1"
@@ -294,7 +353,7 @@
         },
         {
           "command": "reportStudio.newProject",
-          "when": "view == reportStudio.report",
+          "when": "view == reportStudio.report || view == reportStudio.workspace",
           "group": "navigation@3"
         },
         {
@@ -393,6 +452,11 @@
           "command": "reportStudio.insertLibraryItem",
           "when": "view == reportStudio.library && viewItem == libraryEntry",
           "group": "inline@1"
+        },
+        {
+          "command": "reportStudio.openPreview",
+          "when": "view == reportStudio.workspace && viewItem == engagement",
+          "group": "inline@1"
         }
       ],
       "editor/title": [
@@ -453,6 +517,10 @@
         },
         {
           "command": "reportStudio.insertLibraryItem",
+          "when": "false"
+        },
+        {
+          "command": "reportStudio.openEngagement",
           "when": "false"
         }
       ]
@@ -551,6 +619,16 @@
           "type": "boolean",
           "default": true,
           "description": "Refresh the live preview while typing."
+        },
+        "reportStudio.engagementsFolder": {
+          "type": "string",
+          "default": "engagements",
+          "markdownDescription": "Folder (relative to the workspace) where **New Engagement** creates engagement folders. Empty = the workspace root. Engagements anywhere in the workspace are found anyway."
+        },
+        "reportStudio.home.openOnStartup": {
+          "type": "boolean",
+          "default": true,
+          "description": "Open the Report Studio home when the Report Studio sidebar is first shown in a window."
         }
       }
     },

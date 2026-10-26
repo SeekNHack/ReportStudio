@@ -28,8 +28,19 @@ exports.run = async function () {
 
   await step('registers all commands', async () => {
     const all = await vscode.commands.getCommands(true);
-    for (const c of ['reportStudio.buildPdf', 'reportStudio.newItem', 'reportStudio.newDesign', 'reportStudio.editDesign', 'reportStudio.openPreview', 'reportStudio.exportHtml', 'reportStudio.exportData', 'reportStudio.switchDesign', 'reportStudio.newReportFrom'])
+    for (const c of ['reportStudio.buildPdf', 'reportStudio.newItem', 'reportStudio.newDesign', 'reportStudio.editDesign', 'reportStudio.openPreview', 'reportStudio.exportHtml', 'reportStudio.exportData', 'reportStudio.switchDesign', 'reportStudio.newReportFrom', 'reportStudio.openHome', 'reportStudio.openEngagement', 'reportStudio.editTemplate', 'reportStudio.previewTemplate', 'reportStudio.importTemplate'])
       assert.ok(all.includes(c), c);
+  });
+
+  const tabLabels = () => vscode.window.tabGroups.all.flatMap((g) => g.tabs.map((t) => t.label));
+  await step('opens the home and previews a template with sample data', async () => {
+    await vscode.commands.executeCommand('reportStudio.openHome', 'templates');
+    for (let i = 0; i < 30 && !tabLabels().includes('Report Studio'); i++) await sleep(100);
+    assert.ok(tabLabels().includes('Report Studio'), tabLabels().join(', '));
+    await vscode.commands.executeCommand('reportStudio.previewTemplate', 'retest');
+    for (let i = 0; i < 30 && !tabLabels().some((l) => l.startsWith('Template: ')); i++) await sleep(100);
+    assert.ok(tabLabels().includes('Template: Penetration Test Retest'), tabLabels().join(', '));
+    await vscode.commands.executeCommand('workbench.action.closeAllEditors');
   });
 
   const ir = join(examples, 'incident-2026');

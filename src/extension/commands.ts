@@ -1,4 +1,4 @@
-import { copyFileSync, cpSync, existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { copyFileSync, cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join, sep } from 'node:path';
 import * as vscode from 'vscode';
 import { convertProject, describePlan, isExcludedFromCopy, suggestMapping, type ConversionMode } from '../core/convert';
@@ -7,6 +7,8 @@ import { findingValues, newFindingText, parseFinding, serializeFinding, setFindi
 import { ASSETS_DIR, collectionOfFile, DESIGNS_DIR, REPORT_FILE, reportYamlDocument, slugify, uniqueItemFile } from '../core/project';
 import type { Design } from '../core/types';
 import type { BuildService } from './build';
+import type { HomeTab } from '../../webview/home/types';
+import type { HomePanel } from './home';
 import type { PreviewPanel } from './preview';
 import type { ProjectService } from './projects';
 import { isFixed, readLibrary, type LibraryEntry } from './trees';
@@ -25,20 +27,14 @@ function targetUri(arg: unknown): vscode.Uri | undefined {
   return undefined;
 }
 
-/** Order and grouping of the built-in report types in the New Report Project wizard. */
-const PRESET_GROUPS: [string, string[]][] = [
-  ['Offensive security', ['pentest', 'retest', 'vulnerability-assessment', 'code-review', 'red-team', 'phishing-campaign']],
-  ['Blue team', ['incident-response', 'blue-team-analysis', 'threat-hunting', 'forensic-analysis', 'malware-analysis']],
-  ['General', ['activity-report', 'compliance-audit', 'base', 'minimal']],
-];
-
-export function registerCommands(context: vscode.ExtensionContext, projects: ProjectService, builds: BuildService, preview: PreviewPanel, refreshTrees: () => void): void {
+export function registerCommands(context: vscode.ExtensionContext, projects: ProjectService, builds: BuildService, preview: PreviewPanel, home: HomePanel, refreshTrees: () => void): void {
   const reg = (id: string, fn: (...args: any[]) => unknown) => context.subscriptions.push(vscode.commands.registerCommand(id, fn));
 
   const requireProject = async (): Promise<string | undefined> => {
     if (projects.active) return projects.active;
-    const a = await vscode.window.showWarningMessage('No report project in this workspace.', 'Create Report Project');
-    if (a) await vscode.commands.executeCommand('reportStudio.newProject');
+    const a = await vscode.window.showWarningMessage('No engagement yet. Create one from the Report Studio home, starting from any template.', 'New Engagement', 'Open Home');
+    if (a === 'New Engagement') home.show('engagements', { newEngagement: true });
+    if (a === 'Open Home') home.show('home');
     return undefined;
   };
 
@@ -47,87 +43,25 @@ export function registerCommands(context: vscode.ExtensionContext, projects: Pro
   /* ------------------------------------------------------------ build */
   reg('reportStudio.buildPdf', (uri?: vscode.Uri) => builds.run('pdf', uri instanceof vscode.Uri ? projects.projectOf(uri.fsPath) : undefined));
   reg('reportStudio.exportHtml', () => builds.run('html'));
-  reg('reportStudio.openPreview', async () => {
-    const dir = await requireProject();
+  reg('reportStudio.openPreview', async (arg?: unknown) => {
+    const node = (arg as { kind?: string; dir?: string } | undefined)?.kind === 'engagement' ? (arg as { dir: string }).dir : undefined;
+    if (node) projects.setActive(node);
+    const dir = node ?? (await requireProject());
     if (dir) preview.show(dir);
   });
 
   /* ---------------------------------------------------------- project */
-  reg('reportStudio.newProject', async () => {
-    const folders = vscode.workspace.workspaceFolders ?? [];
-    let parent: string | undefined;
-    if (folders.length) {
-      const picks: (vscode.QuickPickItem & { dir?: string })[] = [
-        ...folders.map((f) => ({ label: `$(folder) ${f.name}`, description: f.uri.fsPath, dir: f.uri.fsPath })),
-        { label: '$(folder-opened) Choose another folder…' },
-      ];
-      const pick = await vscode.window.showQuickPick(picks, { title: 'New Report Project (1/3): location', placeHolder: 'Where should the project folder be created?' });
-      if (!pick) return;
-      parent = pick.dir;
-    }
-    if (!parent) {
-      const chosen = await vscode.window.showOpenDialog({ canSelectFolders: true, canSelectFiles: false, openLabel: 'Create here' });
-      if (!chosen?.[0]) return;
-      parent = chosen[0].fsPath;
-    }
-    const name = await vscode.window.showInputBox({
-      title: 'New Report Project (2/3): name',
-      prompt: 'Folder name for the engagement',
-      value: `${new Date().toISOString().slice(0, 7)}-engagement`,
-      validateInput: (v) => (!v.trim() ? 'Required' : existsSync(join(parent!, slugify(v))) ? 'A folder with this name already exists' : undefined),
-    });
-    if (!name) return;
-    const dir = join(parent, slugify(name));
-    const designs = listDesigns(projects.designRoots(dir));
-    const toItem = (d: { id: string }) => {
-      let info: { name: string; description?: string } = { name: d.id };
-      try {
-        info = loadDesign(projects.designRoots(dir), d.id, projects.read);
-      } catch {
-        /* listed anyway */
-      }
-      return { label: info.name, description: d.id, detail: info.description, id: d.id };
-    };
-    const picks: (vscode.QuickPickItem & { id?: string })[] = [];
-    const used = new Set<string>();
-    for (const [group, ids] of PRESET_GROUPS) {
-      const found = ids.filter((id) => designs.some((d) => d.id === id));
-      if (!found.length) continue;
-      picks.push({ label: group, kind: vscode.QuickPickItemKind.Separator });
-      found.forEach((id) => (used.add(id), picks.push(toItem({ id }))));
-    }
-    const custom = designs.filter((d) => !used.has(d.id));
-    if (custom.length) picks.push({ label: 'Your designs', kind: vscode.QuickPickItemKind.Separator }, ...custom.map(toItem));
-    const designPick = await vscode.window.showQuickPick(
-      picks,
-      { title: 'New Report Project (3/3): design', placeHolder: 'Report type — fields and layout come from the design' },
-    );
-    if (!designPick?.id) return;
-    const client = await vscode.window.showInputBox({ title: 'Client name', prompt: 'Optional — you can change it later in the report form', placeHolder: 'ACME Corp' });
-    if (client === undefined) return;
+  reg('reportStudio.openHome', (tab?: unknown, opts?: { newEngagement?: string | true }) =>
+    home.show(typeof tab === 'string' ? (tab as HomeTab) : undefined, { newEngagement: opts?.newEngagement }),
+  );
+  /** New engagement: the dialog of the home, optionally with a template already chosen. */
+  reg('reportStudio.newProject', (designId?: unknown) => home.show('engagements', { newEngagement: typeof designId === 'string' ? designId : true }));
 
-    const design = loadDesign(projects.designRoots(dir), designPick.id, projects.read);
-    const doc = reportYamlDocument('');
-    setYamlValue(doc, 'design', design.id);
-    for (const f of design.reportFields) if (f.default !== undefined) setYamlValue(doc, f.id, f.default);
-    if (client) setYamlValue(doc, 'client', client);
-    if (design.reportFields.some((f) => f.id === 'report_date')) setYamlValue(doc, 'report_date', new Date().toISOString().slice(0, 10));
-    for (const c of design.collections) mkdirSync(join(dir, c.id), { recursive: true });
-    mkdirSync(join(dir, ASSETS_DIR), { recursive: true });
-    writeFileSync(join(dir, ASSETS_DIR, '.gitkeep'), '');
-    writeFileSync(join(dir, REPORT_FILE), `# Report project — open with the Report form or edit as YAML.\n${doc.toString({ lineWidth: 0 })}`);
-    writeFileSync(join(dir, '.gitignore'), 'out/\n');
-
-    const inWorkspace = folders.some((f) => dir.startsWith(f.uri.fsPath));
-    if (!inWorkspace) {
-      const a = await vscode.window.showInformationMessage(`Created ${dir}. Open it?`, 'Open Folder', 'Add to Workspace');
-      if (a === 'Open Folder') return vscode.commands.executeCommand('vscode.openFolder', vscode.Uri.file(dir));
-      if (a === 'Add to Workspace') vscode.workspace.updateWorkspaceFolders(folders.length, 0, { uri: vscode.Uri.file(dir) });
-    }
-    await projects.discover();
-    projects.setActive(dir);
-    await vscode.commands.executeCommand('vscode.openWith', vscode.Uri.file(join(dir, REPORT_FILE)), REPORT_FORM);
-    await vscode.commands.executeCommand('workbench.view.extension.reportStudio');
+  reg('reportStudio.openEngagement', async (dir?: unknown) => {
+    const target = typeof dir === 'string' ? dir : (dir as { dir?: string } | undefined)?.dir;
+    if (!target) return vscode.commands.executeCommand('reportStudio.selectProject');
+    projects.setActive(target);
+    await vscode.commands.executeCommand('vscode.openWith', vscode.Uri.file(join(target, REPORT_FILE)), REPORT_FORM);
   });
 
   reg('reportStudio.selectProject', async () => {
@@ -287,8 +221,8 @@ export function registerCommands(context: vscode.ExtensionContext, projects: Pro
     await doc.save();
   };
 
-  const pickDesign = async (dir: string, placeHolder: string) => {
-    const current = projects.load(dir)?.project.designId;
+  const pickDesign = async (dir: string | undefined, placeHolder: string) => {
+    const current = dir ? projects.load(dir)?.project.designId : undefined;
     const items = listDesigns(projects.designRoots(dir)).map((d) => {
       let name = d.id;
       let description: string | undefined;
@@ -418,22 +352,42 @@ export function registerCommands(context: vscode.ExtensionContext, projects: Pro
   reg('reportStudio.switchDesign', () => changeType());
   reg('reportStudio.newReportFrom', () => changeType('copy'));
 
+  /** Where new templates go: the workspace designs/ folder, shared by every engagement. */
+  const templatesDir = () => {
+    const dir = projects.templatesDir;
+    if (!dir) void vscode.window.showWarningMessage('Open a folder first: templates are stored in its designs/ folder.', 'Open Folder').then((a) => a && vscode.commands.executeCommand('workbench.action.files.openFolder'));
+    return dir;
+  };
+
+  /** After creating a template: offer to use it for the active engagement. */
+  const offerTemplate = async (id: string, name: string, where: string) => {
+    const dir = projects.active;
+    const actions = dir ? ['New Engagement', 'Use for Current Report'] : ['New Engagement'];
+    void vscode.window.showInformationMessage(`Template "${name}" created in ${where}. Open the template preview to see your changes live.`, 'Preview', ...actions).then(async (a) => {
+      if (a === 'Preview') preview.showTemplate(id);
+      if (a === 'New Engagement') home.show('engagements', { newEngagement: id });
+      if (a === 'Use for Current Report' && dir) await setDesign(dir, id);
+    });
+  };
+
   reg('reportStudio.copyDesign', async (presetId?: unknown) => {
-    const dir = await requireProject();
-    if (!dir) return;
-    const preset = typeof presetId === 'string' ? listDesigns(projects.designRoots(dir)).find((d) => d.id === presetId) : undefined;
-    const pick = preset ?? (await pickDesign(dir, 'Design to copy into this project (designs/) so you can edit it'));
+    const root = templatesDir();
+    if (!root) return;
+    const roots = projects.designRoots(projects.active);
+    const preset = typeof presetId === 'string' ? listDesigns(roots).find((d) => d.id === presetId) : undefined;
+    const pick = preset ?? (await pickDesign(projects.active, 'Template to copy into the workspace (designs/) so you can edit everything, HTML included'));
     if (!pick) return;
     const name = await vscode.window.showInputBox({
-      prompt: 'Name of the new design folder',
+      title: 'Copy Template',
+      prompt: `Folder name in ${vscode.workspace.asRelativePath(root)}/`,
       value: `${pick.id}-custom`,
-      validateInput: (v) => (!/^[\w.-]+$/.test(v) ? 'Letters, numbers, dot, dash and underscore only' : existsSync(join(dir, DESIGNS_DIR, v)) ? 'Already exists' : undefined),
+      validateInput: (v) => (!/^[\w.-]+$/.test(v) ? 'Letters, numbers, dot, dash and underscore only' : listDesigns(roots).some((d) => d.id === v) ? 'A template with this id already exists' : undefined),
     });
     if (!name) return;
-    const target = join(dir, DESIGNS_DIR, name);
+    const target = join(root, name);
     cpSync(pick.dir, target, { recursive: true });
     // Templates inherited from parents are copied too, so every part of the layout is editable here.
-    const design = loadDesign(projects.designRoots(dir), pick.id, projects.read);
+    const design = loadDesign(roots, pick.id, projects.read);
     for (const parent of design.parents) {
       for (const file of readdirSync(parent.dir)) {
         if (file.endsWith('.html') && !existsSync(join(target, file))) copyFileSync(join(parent.dir, file), join(target, file));
@@ -441,57 +395,106 @@ export function registerCommands(context: vscode.ExtensionContext, projects: Pro
     }
     if (!existsSync(join(target, 'styles.css')))
       writeFileSync(join(target, 'styles.css'), `/* Overrides on top of the styles of "${design.parents[0]?.id ?? pick.id}". Example:\n:root { --accent: #0f766e; }\n*/\n`);
-    await setDesign(dir, name);
+    // Keep the name unique in the template gallery.
+    const yamlFile = join(target, 'design.yaml');
+    const y = reportYamlDocument(readFileSync(yamlFile, 'utf8'));
+    setYamlValue(y, 'name', `${design.name} (custom)`);
+    writeFileSync(yamlFile, y.toString({ lineWidth: 0 }));
     await projects.discover();
     await vscode.window.showTextDocument(vscode.Uri.file(join(target, existsSync(join(target, 'template.html')) ? 'template.html' : 'design.yaml')));
-    void vscode.window.showInformationMessage(`Design copied to designs/${name} and selected. Edit it with the live preview open to see changes instantly.`, 'Open Preview').then((a) => a && preview.show(dir));
+    preview.showTemplate(name);
+    await offerTemplate(name, `${design.name} (custom)`, vscode.workspace.asRelativePath(target));
+  });
+
+  reg('reportStudio.importTemplate', async () => {
+    const root = templatesDir();
+    if (!root) return;
+    const chosen = await vscode.window.showOpenDialog({ canSelectFolders: true, canSelectFiles: false, canSelectMany: true, openLabel: 'Import', title: 'Import Templates: choose folders with a design.yaml' });
+    if (!chosen?.length) return;
+    const existing = listDesigns(projects.designRoots(projects.active)).map((d) => d.id);
+    const imported: string[] = [];
+    for (const uri of chosen) {
+      // A folder with design.yaml, or a folder of such folders.
+      const dirs = existsSync(join(uri.fsPath, 'design.yaml')) ? [uri.fsPath] : listDesigns([uri.fsPath]).map((d) => d.dir);
+      for (const src of dirs) {
+        let id = basename(src);
+        for (let i = 2; existing.includes(id); i++) id = `${basename(src)}-${i}`;
+        cpSync(src, join(root, id), { recursive: true });
+        existing.push(id);
+        imported.push(id);
+      }
+    }
+    if (!imported.length) {
+      void vscode.window.showWarningMessage('No template found: a template is a folder with a design.yaml (plus optional template.html and styles.css).');
+      return;
+    }
+    await projects.discover();
+    home.show('templates');
+    void vscode.window.showInformationMessage(`Imported ${imported.length} template(s): ${imported.join(', ')}.`);
+  });
+
+  /** Opens a template in the design editor; built-in ones are offered to extend or copy. */
+  const editTemplate = async (id: string) => {
+    const t = listDesigns(projects.designRoots(projects.active)).find((d) => d.id === id);
+    if (!t) return;
+    const file = join(t.dir, 'design.yaml');
+    if (projects.isBuiltin(file)) {
+      const a = await vscode.window.showInformationMessage(
+        `"${id}" is a built-in template and cannot be changed. Create your own template that extends it (you only add or change what you need), or copy it with its HTML.`,
+        'Create Template Extending It',
+        'Copy Template',
+        'View Read-only',
+      );
+      if (a === 'Create Template Extending It') return vscode.commands.executeCommand('reportStudio.newDesign', id);
+      if (a === 'Copy Template') return vscode.commands.executeCommand('reportStudio.copyDesign', id);
+      if (!a) return;
+    }
+    await vscode.commands.executeCommand('vscode.openWith', vscode.Uri.file(file), 'reportStudio.designEditor');
+  };
+
+  reg('reportStudio.editTemplate', async (id?: unknown) => {
+    if (typeof id === 'string') return editTemplate(id);
+    const pick = await pickDesign(projects.active, 'Template to edit');
+    if (pick) await editTemplate(pick.id);
+  });
+
+  reg('reportStudio.previewTemplate', async (id?: unknown) => {
+    const pick = typeof id === 'string' ? { id } : await pickDesign(projects.active, 'Template to preview with sample data');
+    if (pick) preview.showTemplate(pick.id);
   });
 
   reg('reportStudio.editDesign', async () => {
     const dir = await requireProject();
     const design = dir ? projects.load(dir)?.design : undefined;
-    if (!dir || !design) return;
-    const file = join(design.dir, 'design.yaml');
-    if (projects.isBuiltin(file)) {
-      const a = await vscode.window.showInformationMessage(
-        `"${design.name}" is a built-in design and cannot be changed. Create your own design that extends it (you only add or change what you need), or copy it.`,
-        'Create Design Extending It',
-        'Copy Design',
-        'View Read-only',
-      );
-      if (a === 'Create Design Extending It') return vscode.commands.executeCommand('reportStudio.newDesign', design.id);
-      if (a === 'Copy Design') return vscode.commands.executeCommand('reportStudio.copyDesign', design.id);
-      if (!a) return;
-    }
-    await vscode.commands.executeCommand('vscode.openWith', vscode.Uri.file(file), 'reportStudio.designEditor');
+    if (design) await editTemplate(design.id);
   });
 
   reg('reportStudio.newDesign', async (presetParent?: unknown) => {
-    const dir = await requireProject();
-    if (!dir) return;
-    const roots = projects.designRoots(dir);
+    const root = templatesDir();
+    if (!root) return;
+    const roots = projects.designRoots(projects.active);
     const existing = listDesigns(roots);
     type StartPick = vscode.QuickPickItem & { mode: 'blank' | 'extend' | 'copy'; id?: string };
     let start: StartPick | undefined;
     if (typeof presetParent === 'string') start = { label: '', mode: 'extend', id: presetParent };
     else {
       const items: StartPick[] = [
-        { label: '$(new-file) Blank generic design', detail: 'Extends "base": cover, table of contents and automatic layout of every field. Define fields and collections in the GUI, no HTML needed.', mode: 'blank' },
-        { label: 'Extend an existing design', kind: vscode.QuickPickItemKind.Separator, mode: 'extend' },
+        { label: '$(new-file) Blank template', detail: 'Extends "base": cover, table of contents and automatic layout of every field. Define fields and collections in the GUI, no HTML needed.', mode: 'blank' },
+        { label: 'Extend an existing template', kind: vscode.QuickPickItemKind.Separator, mode: 'extend' },
         ...existing.filter((d) => d.id !== 'base').map((d) => ({ label: `$(symbol-color) ${d.id}`, description: projects.isBuiltin(d.dir) ? 'built-in' : 'workspace', detail: 'Inherit everything, then add or hide fields', mode: 'extend' as const, id: d.id })),
       ];
-      start = await vscode.window.showQuickPick(items, { title: 'New Design (1/2)', placeHolder: 'How do you want to start?' });
+      start = await vscode.window.showQuickPick(items, { title: 'New Template (1/2)', placeHolder: 'How do you want to start?' });
     }
     if (!start) return;
     const name = await vscode.window.showInputBox({
-      title: 'New Design (2/2)',
+      title: 'New Template (2/2)',
       prompt: 'Name of the report type',
       placeHolder: 'e.g. Incident Response, Code Review, Phishing Campaign, Audit…',
-      validateInput: (v) => (!v.trim() ? 'Required' : existing.some((d) => d.id === slugify(v)) ? 'A design with this id already exists' : undefined),
+      validateInput: (v) => (!v.trim() ? 'Required' : existing.some((d) => d.id === slugify(v)) ? 'A template with this id already exists' : undefined),
     });
     if (!name) return;
     const id = slugify(name);
-    const target = join(dir, DESIGNS_DIR, id);
+    const target = join(root, id);
     mkdirSync(target, { recursive: true });
     const parent = start.mode === 'blank' ? 'base' : start.id!;
     const body =
@@ -500,9 +503,8 @@ export function registerCommands(context: vscode.ExtensionContext, projects: Pro
         : `# Extends "${parent}": add fields here, or set an inherited field to null to hide it.\nname: ${JSON.stringify(name)}\nextends: ${parent}\n`;
     writeFileSync(join(target, 'design.yaml'), body);
     await projects.discover();
-    const sw = await vscode.window.showInformationMessage(`Design "${name}" created in designs/${id}. Use it for the current report?`, 'Use It', 'Not Now');
-    if (sw === 'Use It') await setDesign(dir, id);
     await vscode.commands.executeCommand('vscode.openWith', vscode.Uri.file(join(target, 'design.yaml')), 'reportStudio.designEditor');
+    await offerTemplate(id, name, vscode.workspace.asRelativePath(target));
   });
 
   /* ---------------------------------------------------------- library */

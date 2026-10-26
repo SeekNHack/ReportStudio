@@ -1,8 +1,8 @@
 import { existsSync, readFileSync } from 'node:fs';
-import { basename, dirname, join, relative, sep } from 'node:path';
+import { basename, dirname, isAbsolute, join, relative, sep } from 'node:path';
 import * as vscode from 'vscode';
 import { DesignError, loadDesign } from '../core/design';
-import { designRoots, loadProject, REPORT_FILE } from '../core/project';
+import { designRoots, DESIGNS_DIR, loadProject, REPORT_FILE } from '../core/project';
 import type { Design, Project, ReadFile } from '../core/types';
 
 export interface Loaded {
@@ -22,6 +22,8 @@ export class ProjectService implements vscode.Disposable {
   private cache = new Map<string, Loaded>();
   private readonly emitter = new vscode.EventEmitter<string | undefined>();
   private readonly listEmitter = new vscode.EventEmitter<void>();
+  private readonly designsEmitter = new vscode.EventEmitter<void>();
+  private designsTimer: NodeJS.Timeout | undefined;
   private readonly disposables: vscode.Disposable[] = [];
   private timer: NodeJS.Timeout | undefined;
   private changedDirs = new Set<string>();
@@ -29,6 +31,8 @@ export class ProjectService implements vscode.Disposable {
   /** Fired (debounced) with the project dir whose files changed. */
   readonly onDidChange = this.emitter.event;
   readonly onDidChangeProjects = this.listEmitter.event;
+  /** Fired (debounced) when a file of a non built-in design changes, is added or removed. */
+  readonly onDidChangeDesigns = this.designsEmitter.event;
 
   constructor(private readonly context: vscode.ExtensionContext) {
     const watcher = vscode.workspace.createFileSystemWatcher('**/*');
@@ -108,8 +112,28 @@ export class ProjectService implements vscode.Disposable {
     return extra ? this.resolveSetting(extra) : undefined;
   }
 
-  designRoots(dir: string): string[] {
-    return designRoots(dir, this.builtinDesignsDir, this.extraDesignsPath());
+  /** `designs/` of every workspace folder: templates shared by all the engagements. */
+  workspaceDesignsDirs(): string[] {
+    return (vscode.workspace.workspaceFolders ?? []).filter((f) => f.uri.scheme === 'file').map((f) => join(f.uri.fsPath, DESIGNS_DIR));
+  }
+
+  /** Where new templates are created, undefined without a workspace folder. */
+  get templatesDir(): string | undefined {
+    return this.workspaceDesignsDirs()[0];
+  }
+
+  /** Where new engagements are created (`reportStudio.engagementsFolder`). */
+  get engagementsDir(): string | undefined {
+    const ws = vscode.workspace.workspaceFolders?.find((f) => f.uri.scheme === 'file')?.uri.fsPath;
+    if (!ws) return undefined;
+    const setting = vscode.workspace.getConfiguration('reportStudio').get<string>('engagementsFolder') ?? 'engagements';
+    return setting.trim() ? this.resolveSetting(setting.trim()) : ws;
+  }
+
+  /** Design search path: the project's own designs, the workspace ones, the setting, then the built-in presets. */
+  designRoots(dir?: string): string[] {
+    if (dir) return designRoots(dir, this.builtinDesignsDir, this.extraDesignsPath(), this.workspaceDesignsDirs());
+    return [...new Set([...this.workspaceDesignsDirs(), this.extraDesignsPath() ?? '', this.builtinDesignsDir].filter(Boolean))];
   }
 
   libraryRoots(): string[] {
@@ -121,7 +145,8 @@ export class ProjectService implements vscode.Disposable {
 
   private resolveSetting(p: string): string {
     const ws = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? '';
-    return p.replace(/^~(?=$|[\\/])/, process.env.HOME ?? '~').replace('${workspaceFolder}', ws);
+    const r = p.replace(/^~(?=$|[\\/])/, process.env.HOME ?? '~').replace('${workspaceFolder}', ws);
+    return isAbsolute(r) ? r : join(ws, r);
   }
 
   isBuiltin(path: string): boolean {
@@ -161,6 +186,11 @@ export class ProjectService implements vscode.Disposable {
   }
 
   private touch(file: string): void {
+    const designRoots = this.designRoots().filter((r) => r !== this.builtinDesignsDir);
+    if (designRoots.some((r) => file === r || file.startsWith(r + sep)) || this.dirs.some((d) => file.startsWith(join(d, DESIGNS_DIR) + sep))) {
+      clearTimeout(this.designsTimer);
+      this.designsTimer = setTimeout(() => this.designsEmitter.fire(), 200);
+    }
     for (const dir of this.dirs) {
       const inProject = file === dir || file.startsWith(dir + sep);
       const inDesign = !inProject && this.designRoots(dir).some((r) => file.startsWith(r + sep));
@@ -185,6 +215,8 @@ export class ProjectService implements vscode.Disposable {
 
   dispose(): void {
     clearTimeout(this.timer);
+    clearTimeout(this.designsTimer);
+    this.designsEmitter.dispose();
     this.disposables.forEach((d) => d.dispose());
     this.emitter.dispose();
     this.listEmitter.dispose();

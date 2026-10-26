@@ -6,7 +6,7 @@ export function nonce(): string {
 }
 
 /** Shell page for a webview bundle in dist/webview/<name>.js (+ .css). */
-export function webviewHtml(webview: vscode.Webview, extensionUri: vscode.Uri, name: 'form' | 'preview' | 'design' | 'pdf', title: string, extraCsp = ''): string {
+export function webviewHtml(webview: vscode.Webview, extensionUri: vscode.Uri, name: 'form' | 'preview' | 'design' | 'pdf' | 'home', title: string, extraCsp = ''): string {
   const n = nonce();
   const asset = (...p: string[]) => webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, ...p)).toString();
   const csp = [

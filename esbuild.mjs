@@ -34,7 +34,7 @@ const builds = [
   },
   {
     ...common,
-    entryPoints: { form: 'webview/form/main.tsx', preview: 'webview/preview/main.ts', design: 'webview/design/main.tsx', pdf: 'webview/pdf/main.ts' },
+    entryPoints: { form: 'webview/form/main.tsx', preview: 'webview/preview/main.ts', design: 'webview/design/main.tsx', pdf: 'webview/pdf/main.ts', home: 'webview/home/main.tsx' },
     outdir: 'dist/webview',
     platform: 'browser',
     format: 'iife',

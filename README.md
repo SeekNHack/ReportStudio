@@ -56,10 +56,39 @@ Every preset is a plain `design.yaml`: copy it to your workspace or extend it to
 
 ## Getting started
 
-1. **Report Studio** icon in the Activity Bar → **Create Report Project** → pick a design.
+Click the **Report Studio** icon in the Activity Bar: the **home** opens, with four sections.
+
+- **Home** — recent engagements, counts, your templates and quick actions.
+- **Templates** — the 15 presets and your own templates. Click a cover to **preview it with
+  sample data**, **Customize** to create a template that inherits it (add or hide fields with
+  the editor, no HTML), or **Copy with HTML and CSS** to change the layout. **Import** copies
+  template folders from elsewhere. Your templates live in `designs/` of the workspace and every
+  engagement can use them; the preview refreshes while you edit `template.html` or `styles.css`.
+- **Engagements** — every report of the workspace with client, dates, entries and a severity
+  bar; open, preview, build, export or start the retest from here.
+- **Library** — reusable findings to insert into the active engagement.
+
+Then:
+
+1. **New Engagement** → pick the template, the client and the dates. The folder is created in
+   `engagements/` (setting `reportStudio.engagementsFolder`).
 2. Fill in the **Report** form, add entries from the **Content** view (`+` on each collection).
 3. **Live Preview** (`Ctrl+Alt+P`) shows the real pages while you type.
 4. **Build PDF**: status bar button, toolbar buttons, `Ctrl+Alt+B`, or *Terminal → Run Build Task*.
+
+A workspace looks like this:
+
+```
+my-workspace/
+  designs/                 # your templates, shared by every engagement
+    acme-pentest/design.yaml
+  engagements/
+    2026-10-acme/          # one engagement
+      report.yaml
+      findings/*.md
+      assets/
+  library/                 # reusable findings
+```
 
 The PDF is printed by Chrome, Chromium, Edge or Brave (found automatically, also in the
 Playwright/Puppeteer caches, or set `reportStudio.chromePath`). Without a browser you can still
@@ -74,7 +103,7 @@ Install with `code-server --install-extension report-studio-<version>.vsix`.
 
 ## Create your own report type (no HTML needed)
 
-**Report Studio: New Design…** → *Blank generic design* → name it. The **Design editor** opens:
+**New Template** (home or command palette) → *Blank template* → name it. The **Design editor** opens:
 
 - **Report fields**: add fields with any type, mark them required, group them in form
   sections, set defaults, help text and where they are printed (chapter before/after the

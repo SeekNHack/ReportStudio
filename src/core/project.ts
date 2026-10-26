@@ -1,9 +1,9 @@
-import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join, relative, sep } from 'node:path';
 import { parse, parseDocument } from 'yaml';
 import { scoreCvss, severityForScore } from './cvss';
 import { RESERVED_FOLDERS } from './design';
-import { findingValues, parseFinding } from './findingFile';
+import { findingValues, parseFinding, setYamlValue } from './findingFile';
 import type { CollectionDef, Design, Item, Project, ReadFile } from './types';
 
 export const REPORT_FILE = 'report.yaml';
@@ -57,8 +57,17 @@ export function projectDirOf(file: string): string | undefined {
   return undefined;
 }
 
-export function designRoots(projectDir: string, builtinDir: string, extra?: string): string[] {
-  return [join(projectDir, DESIGNS_DIR), extra ?? '', builtinDir].filter(Boolean);
+/**
+ * Design search path: the project's own designs/, the designs/ of its parent
+ * folders (templates shared by the engagements of a workspace), the extra
+ * folder from the settings, then the built-in presets.
+ */
+export function designRoots(projectDir: string, builtinDir: string, extra?: string, workspaceDirs: string[] = []): string[] {
+  const roots = [join(projectDir, DESIGNS_DIR)];
+  for (let dir = dirname(projectDir), i = 0; i < 4 && dir !== dirname(dir); dir = dirname(dir), i++) {
+    if (existsSync(join(dir, DESIGNS_DIR, '.')) && !existsSync(join(dir, REPORT_FILE))) roots.push(join(dir, DESIGNS_DIR));
+  }
+  return [...new Set([...roots, ...workspaceDirs, extra ?? '', builtinDir].filter(Boolean))];
 }
 
 /** Severity of an item: explicit value, else derived from CVSS. */
@@ -139,4 +148,18 @@ export function reportYamlDocument(text: string) {
 export function numberFor(collection: CollectionDef | undefined, index: number, total: number): string {
   if (!collection?.prefix) return String(index + 1);
   return `${collection.prefix}${String(index + 1).padStart(Math.max(2, String(total).length), '0')}`;
+}
+
+/** Creates an engagement folder: report.yaml with the design defaults, collection folders, assets/. */
+export function scaffoldProject(dir: string, design: Design, values: Record<string, unknown> = {}): void {
+  const doc = reportYamlDocument('');
+  setYamlValue(doc, 'design', design.id);
+  for (const f of design.reportFields) if (f.default !== undefined) setYamlValue(doc, f.id, f.default);
+  if (design.reportFields.some((f) => f.id === 'report_date')) setYamlValue(doc, 'report_date', new Date().toISOString().slice(0, 10));
+  for (const [k, v] of Object.entries(values)) if (v !== undefined && v !== '') setYamlValue(doc, k, v);
+  for (const c of design.collections) mkdirSync(join(dir, c.id), { recursive: true });
+  mkdirSync(join(dir, ASSETS_DIR), { recursive: true });
+  writeFileSync(join(dir, ASSETS_DIR, '.gitkeep'), '');
+  writeFileSync(join(dir, REPORT_FILE), `# Report project — open with the Report form or edit as YAML.\n${doc.toString({ lineWidth: 0 })}`);
+  if (!existsSync(join(dir, '.gitignore'))) writeFileSync(join(dir, '.gitignore'), 'out/\n');
 }

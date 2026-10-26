@@ -1,6 +1,9 @@
 import { statSync } from 'node:fs';
+import { join } from 'node:path';
 import * as vscode from 'vscode';
+import { loadDesign } from '../core/design';
 import { renderReport } from '../core/render';
+import { sampleProject } from '../core/sample';
 import type { ProjectService } from './projects';
 import { webviewHtml } from './webviewHtml';
 
@@ -11,6 +14,8 @@ import { webviewHtml } from './webviewHtml';
 export class PreviewPanel implements vscode.Disposable {
   private panel: vscode.WebviewPanel | undefined;
   private dir: string | undefined;
+  /** Set while previewing a template with sample data instead of a project. */
+  private template: string | undefined;
   private timer: NodeJS.Timeout | undefined;
   private readonly disposables: vscode.Disposable[] = [];
   private version = 0;
@@ -21,13 +26,20 @@ export class PreviewPanel implements vscode.Disposable {
   ) {
     this.disposables.push(
       projects.onDidChange((dir) => {
-        if (!this.panel) return;
+        if (!this.panel || this.template) return;
         if (dir === projects.active && dir !== this.dir) this.dir = dir;
         if (dir !== this.dir) return;
         if (!vscode.workspace.getConfiguration('reportStudio').get<boolean>('preview.autoRefresh')) return;
         this.schedule();
       }),
+      projects.onDidChangeDesigns(() => this.panel && this.template && this.schedule()),
     );
+  }
+
+  /** Previews a template (design) filled with sample data, refreshed when its files change. */
+  showTemplate(id: string): void {
+    this.template = id;
+    this.open();
   }
 
   show(dir = this.projects.active): void {
@@ -36,6 +48,11 @@ export class PreviewPanel implements vscode.Disposable {
       return;
     }
     this.dir = dir;
+    this.template = undefined;
+    this.open();
+  }
+
+  private open(): void {
     if (this.panel) {
       this.panel.reveal(undefined, true);
       this.resetRoots();
@@ -67,7 +84,7 @@ export class PreviewPanel implements vscode.Disposable {
           await vscode.window.showTextDocument(vscode.Uri.file(msg.file), { selection: new vscode.Range((msg.line ?? 1) - 1, 0, (msg.line ?? 1) - 1, 0), viewColumn: vscode.ViewColumn.One });
           break;
         case 'command':
-          await vscode.commands.executeCommand(msg.command);
+          await vscode.commands.executeCommand(msg.command, ...(Array.isArray(msg.args) ? msg.args : []));
           break;
       }
     }, null, this.disposables);
@@ -75,7 +92,8 @@ export class PreviewPanel implements vscode.Disposable {
 
   private roots(): vscode.Uri[] {
     const roots = [vscode.Uri.joinPath(this.context.extensionUri, 'media'), vscode.Uri.joinPath(this.context.extensionUri, 'dist')];
-    if (this.dir) roots.push(vscode.Uri.file(this.dir), ...this.projects.designRoots(this.dir).map((d) => vscode.Uri.file(d)));
+    if (this.template) roots.push(...this.projects.designRoots().map((d) => vscode.Uri.file(d)));
+    else if (this.dir) roots.push(vscode.Uri.file(this.dir), ...this.projects.designRoots(this.dir).map((d) => vscode.Uri.file(d)));
     return roots;
   }
 
@@ -90,6 +108,7 @@ export class PreviewPanel implements vscode.Disposable {
 
   render(): void {
     const panel = this.panel;
+    if (panel && this.template) return this.renderTemplate(panel, this.template);
     if (!panel || !this.dir) return;
     const loaded = this.projects.load(this.dir);
     if (!loaded) return;
@@ -119,6 +138,34 @@ export class PreviewPanel implements vscode.Disposable {
       });
     } catch (e) {
       void panel.webview.postMessage({ type: 'error', version, message: (e as Error).message });
+    }
+  }
+
+  private renderTemplate(panel: vscode.WebviewPanel, id: string): void {
+    const version = ++this.version;
+    try {
+      const t0 = Date.now();
+      const design = loadDesign(this.projects.designRoots(), id, this.projects.read);
+      const project = sampleProject(design, design.dir, join(this.context.extensionPath, 'media', 'sample-screenshot.svg'));
+      const result = renderReport(project, design, {
+        read: this.projects.read,
+        assetUrl: (p) => panel.webview.asWebviewUri(vscode.Uri.file(p)).with({ query: `v=${mtime(p)}` }).toString(),
+      });
+      panel.title = `Template: ${design.name}`;
+      void panel.webview.postMessage({
+        type: 'render',
+        version,
+        body: result.body,
+        css: result.css,
+        title: result.title,
+        design: design.name,
+        template: id,
+        issues: result.issues.filter((i) => i.severity === 'error'),
+        renderMs: Date.now() - t0,
+        lang: 'en',
+      });
+    } catch (e) {
+      void panel.webview.postMessage({ type: 'error', version, message: (e as Error).message, template: id });
     }
   }
 

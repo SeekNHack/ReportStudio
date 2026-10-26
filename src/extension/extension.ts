@@ -6,20 +6,33 @@ import { DesignEditorProvider } from './designEditor';
 import { DiagnosticsService } from './diagnostics';
 import { registerExports } from './exports';
 import { FormEditorProvider } from './formEditor';
+import { HomePanel } from './home';
 import { PreviewPanel } from './preview';
 import { ProjectService } from './projects';
 import { FindingsTree, LibraryTree, ReportTree } from './trees';
+import { WorkspaceTree } from './workspaceTree';
 
 export async function activate(context: vscode.ExtensionContext): Promise<{ projects: ProjectService }> {
   const projects = new ProjectService(context);
   const diagnostics = new DiagnosticsService(projects);
   const builds = new BuildService(context, projects, diagnostics);
   const preview = new PreviewPanel(context, projects);
-  context.subscriptions.push(projects, diagnostics, builds, preview);
+  const home = new HomePanel(context, projects, preview);
+  context.subscriptions.push(projects, diagnostics, builds, preview, home);
 
   const reportTree = new ReportTree(projects, builds);
   const findingsTree = new FindingsTree(projects, diagnostics);
   const libraryTree = new LibraryTree(projects);
+  const workspaceTree = new WorkspaceTree(projects);
+  const workspaceView = vscode.window.createTreeView('reportStudio.workspace', { treeDataProvider: workspaceTree });
+  // Opening the Report Studio sidebar opens the home once per window.
+  let homeShown = false;
+  const maybeShowHome = () => {
+    if (homeShown || !workspaceView.visible) return;
+    homeShown = true;
+    if (vscode.workspace.getConfiguration('reportStudio').get<boolean>('home.openOnStartup', true) && !home.visible) home.show('home', { preserveFocus: true });
+  };
+  context.subscriptions.push(workspaceView, workspaceView.onDidChangeVisibility(maybeShowHome));
   const findingsView = vscode.window.createTreeView('reportStudio.findings', { treeDataProvider: findingsTree, showCollapseAll: true });
   findingsTree.view = findingsView;
   context.subscriptions.push(
@@ -35,10 +48,11 @@ export async function activate(context: vscode.ExtensionContext): Promise<{ proj
     vscode.window.registerCustomEditorProvider('reportStudio.designEditor', new DesignEditorProvider(context, projects), formOptions),
   );
 
-  registerCommands(context, projects, builds, preview, () => {
+  registerCommands(context, projects, builds, preview, home, () => {
     reportTree.refresh();
     findingsTree.refresh();
     libraryTree.refresh();
+    workspaceTree.refresh();
   });
   registerExports(context, projects);
   registerCompletions(context, projects);
@@ -46,6 +60,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<{ proj
   await projects.discover();
   findingsTree.refresh();
   if (projects.active) diagnostics.validate(projects.active);
+  maybeShowHome();
   return { projects };
 }
 

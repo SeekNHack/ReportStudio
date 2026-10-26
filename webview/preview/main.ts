@@ -11,6 +11,8 @@ interface RenderMsg {
   issues: { file: string; message: string; severity: string; line?: number }[];
   renderMs: number;
   lang: string;
+  /** set when previewing a template with sample data */
+  template?: string;
 }
 
 const app = document.getElementById('app')!;
@@ -29,8 +31,11 @@ app.innerHTML = `
     <span class="spacer"></span>
     <span class="status"><i class="codicon codicon-loading codicon-modifier-spin"></i> Rendering…</span>
     <button class="icon-btn" data-act="refresh" title="Refresh"><i class="codicon codicon-refresh"></i></button>
-    <button class="btn" data-act="report" title="Edit report details"><i class="codicon codicon-edit"></i> Report</button>
-    <button class="btn primary" data-act="build" title="Build PDF (Ctrl+Alt+B)"><i class="codicon codicon-file-pdf"></i> Build PDF</button>
+    <span class="sample-note" title="Every field is filled with sample values">Sample data</span>
+    <button class="btn for-template" data-act="editTemplate" title="Fields, collections and layout"><i class="codicon codicon-edit"></i> Edit Template</button>
+    <button class="btn primary for-template" data-act="useTemplate" title="Create an engagement with this template"><i class="codicon codicon-add"></i> New Engagement</button>
+    <button class="btn for-project" data-act="report" title="Edit report details"><i class="codicon codicon-edit"></i> Report</button>
+    <button class="btn primary for-project" data-act="build" title="Build PDF (Ctrl+Alt+B)"><i class="codicon codicon-file-pdf"></i> Build PDF</button>
   </div>
   <div class="issues hidden"></div>
   <div class="stage">
@@ -207,6 +212,7 @@ window.addEventListener('message', (e) => {
     }
     return;
   }
+  if (data?.type === 'render' || data?.type === 'error') setTemplate(data.template);
   if (data?.type === 'render') render(data as RenderMsg);
   if (data?.type === 'error') {
     status.innerHTML = '<i class="codicon codicon-error"></i> Error';
@@ -229,7 +235,16 @@ app.querySelector('.toolbar')!.addEventListener('click', (e) => {
   if (act === 'refresh') vscode.postMessage({ type: 'refresh' });
   if (act === 'build') vscode.postMessage({ type: 'command', command: 'reportStudio.buildPdf' });
   if (act === 'report') vscode.postMessage({ type: 'command', command: 'reportStudio.openReport' });
+  if (act === 'editTemplate') vscode.postMessage({ type: 'command', command: 'reportStudio.editTemplate', args: [template] });
+  if (act === 'useTemplate') vscode.postMessage({ type: 'command', command: 'reportStudio.openHome', args: ['templates', { newEngagement: template }] });
 });
+
+let template: string | undefined;
+function setTemplate(id: string | undefined) {
+  template = id;
+  app.querySelector('.toolbar')!.classList.toggle('template-mode', !!id);
+}
+setTemplate(undefined);
 
 window.addEventListener('resize', () => zoom === 'fit' && applyZoom(frames[active]));
 vscode.postMessage({ type: 'ready' });
