@@ -1,9 +1,26 @@
-# Report Studio
+<p align="center"><img src="media/icon.png" width="96" alt=""></p>
 
-Write any kind of report inside VS Code — penetration tests, retests, incident response,
-audits, code reviews — and export it to PDF. Everything is configurable: which fields are
-asked, their type, repeatable collections (findings, timeline events, IOCs…), placeholders,
-layout, cover, fonts and colors. Edit it all with a GUI or as plain YAML/Markdown.
+<h1 align="center">Report Studio</h1>
+
+<p align="center">
+Security and IT reports in VS Code — like SysReptor and PwnDoc, as plain files in your workspace.<br>
+Pentest · Retest · Red team · Incident response · Forensics · Malware · Audits
+</p>
+
+<p align="center">
+<a href="https://github.com/SeekNHack/ReportStudio/actions/workflows/ci.yml"><img src="https://github.com/SeekNHack/ReportStudio/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+<a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT license"></a>
+</p>
+
+## Features
+
+- **15 report types** ready to use, or your own: fields, collections (findings, events, IOCs…), layout, cover, fonts and colors — with a GUI or as YAML.
+- **Forms** for every report and entry, with CVSS 3.1/4.0 calculator, Markdown editor, screenshot galleries and code listings.
+- **Live paged preview** and **PDF export** (Chrome + Paged.js): table of contents, page numbers, charts, Mermaid diagrams.
+- **Screenshot annotation**: boxes, arrows, highlighter, redaction, numbered steps, crop.
+- **Change report type**: turn a pentest into a retest, or start a new retest round, without copying anything by hand.
+- **Export data** to Excel, CSV, JSON and SARIF.
+- **Plain files**: YAML and Markdown, git friendly. Works in VS Code, code-server, Remote-SSH and containers.
 
 ## Concepts
 

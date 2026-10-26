@@ -1,7 +1,7 @@
 {
   "name": "report-studio",
   "displayName": "Report Studio",
-  "description": "Write any kind of report in VS Code — pentest, retest, incident response, audits — with configurable fields and collections, Nunjucks HTML designs, a graphical design and theme editor, live paged preview and PDF export.",
+  "description": "Write security and IT reports in VS Code like SysReptor and PwnDoc: pentest, retest, incident response, forensics, audits. Configurable fields, live paged preview, PDF export, screenshot annotation and Excel/CSV/JSON/SARIF export.",
   "version": "0.2.0",
   "publisher": "report-studio",
   "license": "MIT",
@@ -12,12 +12,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/SeekNHack/report-studio.git"
+    "url": "https://github.com/SeekNHack/ReportStudio.git"
   },
   "bugs": {
-    "url": "https://github.com/SeekNHack/report-studio/issues"
+    "url": "https://github.com/SeekNHack/ReportStudio/issues"
   },
-  "homepage": "https://github.com/SeekNHack/report-studio#readme",
+  "homepage": "https://github.com/SeekNHack/ReportStudio#readme",
   "engines": {
     "vscode": "^1.90.0"
   },
@@ -28,11 +28,18 @@
   "keywords": [
     "report",
     "pentest",
+    "penetration testing",
+    "retest",
     "incident response",
     "blue team",
+    "red team",
+    "forensics",
     "sysreptor",
     "pwndoc",
     "pdf",
+    "cvss",
+    "sarif",
+    "markdown",
     "template"
   ],
   "main": "./dist/extension.js",
