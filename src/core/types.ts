@@ -125,6 +125,8 @@ export interface Design {
   findingPrefix: string;
   /** theme defaults of the design chain (see core/theme.ts) */
   theme: Record<string, unknown>;
+  /** ordered blocks from `layout:` (nearest design in the chain that sets one), see core/layout.ts */
+  layout?: import('./layout').LayoutBlock[];
 }
 
 /** One entry of a collection (a Markdown file with front matter). */

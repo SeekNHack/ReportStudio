@@ -109,7 +109,7 @@ export function registerCompletions(context: vscode.ExtensionContext, projects: 
   // Context key that shows Preview / Build buttons on design files.
   const update = (e?: vscode.TextEditor) => {
     const file = e?.document.uri.fsPath;
-    const isDesign = !!file && projects.projects.some((d) => projects.designRoots(d).some((r) => file.startsWith(r + sep)));
+    const isDesign = !!file && [...new Set([...projects.designRoots(), ...projects.projects.flatMap((d) => projects.designRoots(d))])].some((r) => file.startsWith(r + sep));
     void vscode.commands.executeCommand('setContext', 'reportStudio.isDesignFile', isDesign);
     const dir = file && file.endsWith('.md') ? projects.projectOf(file) : undefined;
     const cid = dir && file ? collectionOfFile(dir, file) : undefined;

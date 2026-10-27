@@ -1,5 +1,5 @@
 import { basename, extname, isAbsolute, join } from 'node:path';
-import type { FieldDef } from './types';
+import type { FieldDef, SeverityDef } from './types';
 
 /**
  * Visual theme: colors, fonts, cover and page settings edited with the graphical
@@ -33,12 +33,30 @@ export const COVER_LAYOUTS = [
   { value: 'minimal', label: 'Minimal' },
 ];
 
+const INHERIT = 'Empty = as in the template.';
+
 export const THEME_FIELDS: FieldDef[] = [
   { id: 'accent', type: 'color', label: 'Accent', group: 'Colors', default: '#3b3fd8', help: 'Headings, links, numbers and table headers.' },
   { id: 'ink', type: 'color', label: 'Text', group: 'Colors', default: '#1d2433' },
   { id: 'muted', type: 'color', label: 'Secondary text', group: 'Colors', default: '#6b7280' },
-  { id: 'accent_soft', type: 'color', label: 'Table header background', group: 'Colors', default: '#eef0ff' },
+  { id: 'link_color', type: 'color', label: 'Links', group: 'Colors', help: INHERIT },
   { id: 'code_bg', type: 'color', label: 'Code background', group: 'Colors', default: '#f6f8fa' },
+
+  { id: 'h1_color', type: 'color', label: 'Chapter titles (H1)', group: 'Headings', help: INHERIT },
+  { id: 'h1_size', type: 'range', label: 'H1 size (pt)', group: 'Headings', min: 12, max: 32, step: 0.5, help: 'Empty = 20 pt.' },
+  { id: 'h1_rule', type: 'boolean', label: 'Line under chapter titles', group: 'Headings', default: true },
+  { id: 'h1_rule_color', type: 'color', label: 'Line color', group: 'Headings', help: 'Empty = accent.' },
+  { id: 'h2_color', type: 'color', label: 'Section titles (H2, finding titles)', group: 'Headings', help: INHERIT },
+  { id: 'h2_size', type: 'range', label: 'H2 size (pt)', group: 'Headings', min: 9, max: 24, step: 0.5, help: 'Empty = 13.5 pt.' },
+  { id: 'h3_color', type: 'color', label: 'Sub-section titles (H3)', group: 'Headings', help: 'Empty = accent.' },
+  { id: 'heading_case', type: 'enum', label: 'Chapter title case', group: 'Headings', default: 'none', options: [{ value: 'none', label: 'As written' }, { value: 'uppercase', label: 'UPPERCASE' }] },
+
+  { id: 'accent_soft', type: 'color', label: 'Header background', group: 'Tables', default: '#eef0ff', help: 'Header row of tables (findings overview, Markdown tables…).' },
+  { id: 'table_header_text', type: 'color', label: 'Header text', group: 'Tables', help: INHERIT },
+  { id: 'table_label_color', type: 'color', label: 'Row labels', group: 'Tables', help: 'First column of label / value tables (finding details, document information). ' + INHERIT },
+  { id: 'table_border', type: 'color', label: 'Borders', group: 'Tables', help: INHERIT },
+  { id: 'table_stripes', type: 'boolean', label: 'Striped rows', group: 'Tables', default: false },
+  { id: 'caption_color', type: 'color', label: 'Table and figure captions', group: 'Tables', help: INHERIT },
 
   { id: 'font_body', type: 'font', label: 'Body font', group: 'Typography', default: FONT_STACKS[0].value, options: FONT_STACKS },
   { id: 'font_headings', type: 'font', label: 'Headings font', group: 'Typography', default: FONT_STACKS[0].value, options: FONT_STACKS },
@@ -49,8 +67,10 @@ export const THEME_FIELDS: FieldDef[] = [
 
   { id: 'cover_layout', type: 'enum', display: 'cards', label: 'Cover layout', group: 'Cover', default: 'gradient', options: COVER_LAYOUTS },
   { id: 'cover_start', type: 'color', label: 'Cover color', group: 'Cover', default: '#14183a' },
-  { id: 'cover_end', type: 'color', label: 'Cover gradient end', group: 'Cover', default: '#3b3fd8' },
+  { id: 'cover_end', type: 'color', label: 'Cover gradient end', group: 'Cover', default: '#3b3fd8', help: 'Second color of "Gradient", right side of "Split".' },
+  { id: 'cover_angle', type: 'range', label: 'Gradient direction (°)', group: 'Cover', min: 0, max: 360, step: 5, help: 'Empty = 160°.' },
   { id: 'cover_text', type: 'color', label: 'Cover text', group: 'Cover', default: '#ffffff' },
+  { id: 'cover_title_size', type: 'range', label: 'Cover title size (pt)', group: 'Cover', min: 18, max: 56, step: 1, help: INHERIT },
   { id: 'cover_image', type: 'image', label: 'Cover image', group: 'Cover', help: 'Used by the "Background image" and "Split" layouts.' },
   { id: 'logo', type: 'image', label: 'Logo', group: 'Cover', help: 'Leave empty to use the logo of the design.' },
   { id: 'logo_width', type: 'range', label: 'Logo width (mm)', group: 'Cover', default: 44, min: 15, max: 120, step: 1 },
@@ -62,6 +82,29 @@ export const THEME_FIELDS: FieldDef[] = [
   { id: 'header', type: 'boolean', label: 'Running header', group: 'Page', default: true },
   { id: 'footer', type: 'boolean', label: 'Footer with page numbers', group: 'Page', default: true },
 ];
+
+/** Values shown (not applied) for optional settings that are empty: what the base styles use. */
+export const THEME_HINTS: Record<string, unknown> = { h1_size: 20, h2_size: 13.5, cover_angle: 160, cover_title_size: 32 };
+
+/** Shown defaults of a theme editor: hints, the design's severity colors, then the inherited theme. */
+export function themeDefaultsFor(design: { severities: SeverityDef[] } | undefined, inherited: Record<string, unknown> | undefined): Record<string, unknown> {
+  return { ...THEME_HINTS, ...Object.fromEntries((design?.severities ?? []).map((s) => [`severity_${s.id}`, s.color])), ...resolveTheme(inherited) };
+}
+
+/** Theme fields for a design: the fixed ones plus one color per severity of the design. */
+export function themeFieldsFor(design?: { severities: SeverityDef[] }): FieldDef[] {
+  const sev: FieldDef[] = (design?.severities ?? []).map((s) => ({ id: `severity_${s.id}`, type: 'color', label: s.label, group: 'Severities', default: s.color }));
+  const i = THEME_FIELDS.findIndex((f) => f.group === 'Page');
+  return [...THEME_FIELDS.slice(0, i), ...sev, ...THEME_FIELDS.slice(i)];
+}
+
+/** Severities with the colors chosen in the theme (`severity_<id>`). */
+export function themedSeverities(severities: SeverityDef[], theme: Record<string, unknown>): SeverityDef[] {
+  return severities.map((s) => {
+    const c = theme[`severity_${s.id}`];
+    return typeof c === 'string' && /^#[0-9a-f]{3,8}$/i.test(c) ? { ...s, color: c } : s;
+  });
+}
 
 export type Theme = Record<string, unknown>;
 
@@ -120,5 +163,24 @@ export function themeCss(theme: Theme, baseDir: string, assetUrl: (abs: string) 
   if (theme.header === false) lines.push('@page { @top-left { content: none; } @top-center { content: none; } @top-right { content: none; } }');
   if (theme.footer === false) lines.push('@page { @bottom-left { content: none; } @bottom-center { content: none; } @bottom-right { content: none; } }');
   if (theme.heading_numbers === false) lines.push('.heading-number, .toc-number { display: none !important; }');
+  // Optional overrides: only emitted when set, so each template keeps its own look otherwise.
+  const set = (v: unknown) => v !== undefined && v !== null && v !== '';
+  const c = (v: unknown) => color(v, 'inherit');
+  if (set(theme.link_color)) lines.push(`a:not(.toc a) { color: ${c(theme.link_color)} !important; }`);
+  if (set(theme.h1_color)) lines.push(`h1 { color: ${c(theme.h1_color)} !important; }`);
+  if (set(theme.h1_size)) lines.push(`h1 { font-size: ${num(theme.h1_size, 20)}pt !important; }`);
+  if (theme.h1_rule === false) lines.push('h1 { border-bottom: none !important; padding-bottom: 0 !important; }');
+  else if (set(theme.h1_rule_color)) lines.push(`h1 { border-bottom-color: ${c(theme.h1_rule_color)} !important; }`);
+  if (set(theme.h2_color)) lines.push(`h2 { color: ${c(theme.h2_color)} !important; }`);
+  if (set(theme.h2_size)) lines.push(`h2 { font-size: ${num(theme.h2_size, 13.5)}pt !important; }`);
+  if (set(theme.h3_color)) lines.push(`h3 { color: ${c(theme.h3_color)} !important; }`);
+  if (theme.heading_case === 'uppercase') lines.push('h1 { text-transform: uppercase; letter-spacing: .03em; }');
+  if (set(theme.table_header_text)) lines.push(`thead th { color: ${c(theme.table_header_text)} !important; }`);
+  if (set(theme.table_label_color)) lines.push(`.finding-meta th, .info-table th, .field-table th, tbody th { color: ${c(theme.table_label_color)} !important; }`);
+  if (set(theme.table_border)) lines.push(`:root { --line: ${c(theme.table_border)}; } table th, table td { border-color: ${c(theme.table_border)} !important; }`);
+  if (theme.table_stripes === true) lines.push('tbody tr:nth-child(even) > td { background: color-mix(in srgb, var(--accent-soft) 55%, transparent); }');
+  if (set(theme.caption_color)) lines.push(`figcaption, caption, .chart-caption { color: ${c(theme.caption_color)} !important; }`);
+  if (set(theme.cover_angle)) lines.push(`.cover--gradient { background: linear-gradient(${num(theme.cover_angle, 160)}deg, var(--cover-start) 0%, var(--cover-end) 100%) !important; }`);
+  if (set(theme.cover_title_size)) lines.push(`.cover-title { font-size: ${num(theme.cover_title_size, 28)}pt !important; }`);
   return `/* theme */\n${lines.join('\n')}\n`;
 }

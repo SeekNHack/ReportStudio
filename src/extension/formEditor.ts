@@ -5,7 +5,7 @@ import { readForAnnotation, saveAnnotation, type AnnotationSidecar } from '../co
 import { listDesigns, markdownFieldIds, SECTION_TYPES } from '../core/design';
 import { findingValues, parseFinding, serializeFinding, setFindingValue, setYamlValue } from '../core/findingFile';
 import { ASSETS_DIR, collectionOfFile, numberFor, reportYamlDocument, slugify, sortItems } from '../core/project';
-import { resolveTheme, THEME_FIELDS } from '../core/theme';
+import { themeDefaultsFor, themeFieldsFor } from '../core/theme';
 import type { CollectionDef, Design, FieldDef } from '../core/types';
 import type { DiagnosticsService } from './diagnostics';
 import type { ProjectService } from './projects';
@@ -39,6 +39,7 @@ export class FormEditorProvider implements vscode.CustomTextEditorProvider {
     webview.html = webviewHtml(webview, this.context.extensionUri, 'form', `${this.kind === 'report' ? 'Report' : 'Finding'} form`);
 
     let lastWritten: string | undefined;
+    let changes: Promise<void> = Promise.resolve();
     let lastDesignKey = '';
     const disposables: vscode.Disposable[] = [];
 
@@ -67,16 +68,18 @@ export class FormEditorProvider implements vscode.CustomTextEditorProvider {
           case 'ready':
             send(true);
             break;
-          case 'change': {
-            const text = this.applyChange(document, msg.key as string, msg.value, dir);
-            if (text === undefined || text === document.getText()) break;
-            lastWritten = text;
-            const edit = new vscode.WorkspaceEdit();
-            edit.replace(document.uri, new vscode.Range(0, 0, document.lineCount, 0), text);
-            await vscode.workspace.applyEdit(edit);
-            if (msg.key === 'design') send(true);
+          case 'change':
+            // One edit at a time: each change must start from the text the previous one produced.
+            changes = changes.then(async () => {
+              const text = this.applyChange(document, msg.key as string, msg.value, dir);
+              if (text === undefined || text === document.getText()) return;
+              lastWritten = text;
+              const edit = new vscode.WorkspaceEdit();
+              edit.replace(document.uri, new vscode.Range(0, 0, document.lineCount, 0), text);
+              await vscode.workspace.applyEdit(edit);
+              if (msg.key === 'design') send(true);
+            }).catch((e) => void vscode.window.showErrorMessage(`Cannot update ${basename(document.uri.fsPath)}: ${(e as Error).message}`));
             break;
-          }
           case 'saveImage': {
             const rel = this.saveImage(dir ?? dirname(document.uri.fsPath), msg.name as string, msg.data as string);
             void webview.postMessage({ type: 'imageSaved', requestId: msg.requestId, path: rel, url: webview.asWebviewUri(vscode.Uri.file(join(dir ?? '', rel))).toString() });
@@ -182,8 +185,8 @@ export class FormEditorProvider implements vscode.CustomTextEditorProvider {
         severities: collection && !collection.hasSeverity ? [] : (design?.severities ?? []),
         collection: collection && { id: collection.id, label: collection.label, itemLabel: collection.itemLabel, itemVar: collection.itemVar, titleField: collection.titleField, hasSeverity: collection.hasSeverity },
         collectionMissing: this.kind === 'finding' && !!design && !collection,
-        themeFields: this.kind === 'report' ? THEME_FIELDS : [],
-        themeDefaults: this.kind === 'report' ? resolveTheme(design?.theme) : {},
+        themeFields: this.kind === 'report' ? themeFieldsFor(design) : [],
+        themeDefaults: this.kind === 'report' ? themeDefaultsFor(design, design?.theme) : {},
         number,
         parseError,
         projectBase: dir ? webview.asWebviewUri(vscode.Uri.file(dir)).toString() : undefined,

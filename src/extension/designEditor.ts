@@ -1,8 +1,12 @@
-import { basename, dirname, join, sep } from 'node:path';
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { basename, dirname, extname, join, relative, sep } from 'node:path';
 import * as vscode from 'vscode';
 import { parse } from 'yaml';
 import { listDesigns, loadDesign, type RawDesign } from '../core/design';
 import { applyDesignOp, type DesignOp } from '../core/designEdit';
+import { ASSETS_DIR, slugify } from '../core/project';
+import { defaultLayout, LAYOUT_BLOCKS, placeholderFor, supportsLayout, templatePartials } from '../core/layout';
+import { themeDefaultsFor, themeFieldsFor } from '../core/theme';
 import type { CollectionDef, Design, FieldDef } from '../core/types';
 import { FIELD_TYPES } from '../core/types';
 import type { ProjectService } from './projects';
@@ -33,11 +37,16 @@ export class DesignEditorProvider implements vscode.CustomTextEditorProvider {
 
   resolveCustomTextEditor(document: vscode.TextDocument, panel: vscode.WebviewPanel): void {
     const webview = panel.webview;
-    webview.options = { enableScripts: true, localResourceRoots: [vscode.Uri.joinPath(this.context.extensionUri, 'dist'), vscode.Uri.joinPath(this.context.extensionUri, 'media')] };
+    const designDir = dirname(document.uri.fsPath);
+    const readOnly = document.uri.fsPath.startsWith(this.projects.builtinDesignsDir + sep);
+    webview.options = { enableScripts: true, localResourceRoots: [vscode.Uri.joinPath(this.context.extensionUri, 'dist'), vscode.Uri.joinPath(this.context.extensionUri, 'media'), vscode.Uri.file(designDir)] };
     webview.html = webviewHtml(webview, this.context.extensionUri, 'design', 'Design editor');
     const disposables: vscode.Disposable[] = [];
-    const send = () => void webview.postMessage({ type: 'state', ...this.state(document) });
+    const send = () => void webview.postMessage({ type: 'state', ...this.state(document), base: webview.asWebviewUri(vscode.Uri.file(designDir)).toString() });
+    const reply = (msg: { requestId?: number }, abs: string) =>
+      void webview.postMessage({ type: 'imageSaved', requestId: msg.requestId, path: relative(designDir, abs).split('\\').join('/'), url: webview.asWebviewUri(vscode.Uri.file(abs)).toString() });
     let timer: NodeJS.Timeout | undefined;
+    let edits: Promise<void> = Promise.resolve();
     disposables.push(
       vscode.workspace.onDidChangeTextDocument((e) => {
         if (e.document.uri.toString() !== document.uri.toString()) return;
@@ -47,15 +56,45 @@ export class DesignEditorProvider implements vscode.CustomTextEditorProvider {
       webview.onDidReceiveMessage(async (msg) => {
         if (msg.type === 'ready') send();
         if (msg.type === 'op') {
-          try {
-            const text = applyDesignOp(document.getText(), msg.op as DesignOp);
-            const edit = new vscode.WorkspaceEdit();
-            edit.replace(document.uri, new vscode.Range(0, 0, document.lineCount, 0), text);
-            await vscode.workspace.applyEdit(edit);
-          } catch (e) {
-            void vscode.window.showErrorMessage(`Cannot update design.yaml: ${(e as Error).message}`);
-          }
+          if (readOnly) return;
+          // One edit at a time: each operation must start from the text the previous one produced.
+          edits = edits.then(async () => {
+            try {
+              const text = applyDesignOp(document.getText(), msg.op as DesignOp);
+              if (text === document.getText()) return;
+              const edit = new vscode.WorkspaceEdit();
+              edit.replace(document.uri, new vscode.Range(0, 0, document.lineCount, 0), text);
+              await vscode.workspace.applyEdit(edit);
+            } catch (e) {
+              void vscode.window.showErrorMessage(`Cannot update design.yaml: ${(e as Error).message}`);
+            }
+          });
         }
+        // Theme images and fonts are stored in the template's own assets folder.
+        if (msg.type === 'saveImage' && !readOnly) {
+          const ext = extname(String(msg.name)) || '.png';
+          const abs = join(designDir, ASSETS_DIR, `${slugify(basename(String(msg.name), ext)) || 'image'}${ext}`);
+          mkdirSync(dirname(abs), { recursive: true });
+          writeFileSync(abs, Buffer.from(String(msg.data), 'base64'));
+          reply(msg, abs);
+        }
+        if (msg.type === 'pickImage' && !readOnly) {
+          const font = msg.accept === 'font';
+          const sub = font ? join(ASSETS_DIR, 'fonts') : ASSETS_DIR;
+          const filters: Record<string, string[]> = font ? { Fonts: ['woff2', 'woff', 'ttf', 'otf'] } : { Images: ['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp'] };
+          const picked = await vscode.window.showOpenDialog({ canSelectMany: false, filters, defaultUri: vscode.Uri.file(join(designDir, sub)) });
+          if (!picked?.[0]) return;
+          let abs = picked[0].fsPath;
+          if (relative(designDir, abs).startsWith('..')) {
+            const dest = join(designDir, sub, basename(abs));
+            mkdirSync(dirname(dest), { recursive: true });
+            await vscode.workspace.fs.copy(picked[0], vscode.Uri.file(dest), { overwrite: false }).then(undefined, () => undefined);
+            abs = dest;
+          }
+          reply(msg, abs);
+        }
+        // Custom template.html: insert a placeholder where the cursor is.
+        if (msg.type === 'insertPlaceholder') await this.insertPlaceholder(document, String(msg.text));
         if (msg.type === 'command') {
           if (msg.command === 'openAsText') await vscode.commands.executeCommand('vscode.openWith', document.uri, 'default');
           else if (msg.command === 'openTemplate') {
@@ -68,10 +107,51 @@ export class DesignEditorProvider implements vscode.CustomTextEditorProvider {
     panel.onDidDispose(() => disposables.forEach((d) => d.dispose()));
   }
 
+  private layoutState(design: Design, raw: RawDesign, parent: Design | undefined) {
+    const partials = templatePartials(design);
+    const own = Array.isArray((raw as { layout?: unknown }).layout);
+    const supported = supportsLayout(design, this.projects.read);
+    const scalar = (f: FieldDef) => ['enum', 'boolean', 'string', 'user', 'date', 'number'].includes(f.type);
+    const report = design.reportFields.map((f) => ({ id: f.id, label: f.label, type: f.type, snippet: placeholderFor(f) }));
+    return {
+      supported,
+      own,
+      inheritedFrom: !own && design.layout ? parent?.name ?? design.parents[0]?.id : undefined,
+      blocks: design.layout ?? defaultLayout(design, partials),
+      defaults: defaultLayout(design, partials),
+      kinds: LAYOUT_BLOCKS,
+      // Hook files that make sense as "Custom HTML" blocks (not the building blocks of the template).
+      partials: partials.filter((f) => !['template.html', 'layout.html', 'cover.html', 'collection.html', 'collection-body.html', 'item.html', 'finding.html'].includes(f) && !f.startsWith('item-')),
+      report,
+      collections: design.collections.map((c) => ({
+        id: c.id,
+        label: c.label,
+        itemVar: c.itemVar,
+        chartFields: [...(c.hasSeverity ? [{ id: 'severity', label: 'Severity' }] : []), ...c.fields.filter((f) => scalar(f) && f.id !== 'severity' && f.id !== c.titleField).map((f) => ({ id: f.id, label: f.label }))],
+        fields: c.fields.map((f) => ({ id: f.id, label: f.label, type: f.type, snippet: placeholderFor(f, c.itemVar) })),
+      })),
+      ownTemplate: design.templatePath.startsWith(design.dir + sep) ? basename(design.templatePath) : undefined,
+    };
+  }
+
+  private async insertPlaceholder(document: vscode.TextDocument, text: string): Promise<void> {
+    const design = this.load(document).design;
+    const own = design && design.templatePath.startsWith(design.dir + sep) ? design.templatePath : undefined;
+    if (!own) {
+      void vscode.window.showWarningMessage('This template has no template.html of its own. Use "Copy Template with HTML and CSS" to get one you can edit.');
+      return;
+    }
+    const uri = vscode.Uri.file(own);
+    const visible = vscode.window.visibleTextEditors.find((e) => e.document.uri.fsPath === own);
+    const editor = visible ?? (await vscode.window.showTextDocument(uri, { viewColumn: vscode.ViewColumn.Beside, preserveFocus: false }));
+    await editor.edit((b) => b.replace(editor.selection, text));
+    await vscode.window.showTextDocument(editor.document, { viewColumn: editor.viewColumn, preserveFocus: false });
+  }
+
   private roots(document: vscode.TextDocument): string[] {
     const dir = dirname(document.uri.fsPath);
     const project = this.projects.projectOf(dir) ?? this.projects.active;
-    const roots = [dirname(dir), ...(project ? this.projects.designRoots(project) : [this.projects.builtinDesignsDir])];
+    const roots = [dirname(dir), ...this.projects.designRoots(project)];
     return [...new Set(roots)];
   }
 
@@ -150,6 +230,11 @@ export class DesignEditorProvider implements vscode.CustomTextEditorProvider {
       removedCollections,
       hasTemplate: !!design && !!design.templatePath,
       templateFile: design ? join(...design.templatePath.split(sep).slice(-2)) : undefined,
+      theme: raw.theme && typeof raw.theme === 'object' ? raw.theme : {},
+      themeFields: themeFieldsFor(design),
+      // What the template gets when it sets nothing: the built-in defaults and its parents' theme.
+      themeDefaults: themeDefaultsFor(design, parent?.theme),
+      layout: design ? this.layoutState(design, raw, parent) : undefined,
     };
   }
 }

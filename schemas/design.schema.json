@@ -26,7 +26,8 @@
       }
     },
     "theme": {
-      "type": "object"
+      "type": "object",
+      "description": "Default look of the reports made with this template (Theme tab). Image and font paths are relative to the template folder; severity colors are severity_<id>."
     },
     "severities": {
       "type": "array",
@@ -114,6 +115,88 @@
             }
           }
         ]
+      }
+    },
+    "layout": {
+      "type": "array",
+      "description": "Order of the report, edited in the Layout tab. Used by templates whose HTML includes layout.html (base, pentest and the ones that extend them).",
+      "items": {
+        "type": "object",
+        "required": [
+          "type"
+        ],
+        "properties": {
+          "type": {
+            "enum": [
+              "cover",
+              "toc",
+              "heading",
+              "field",
+              "fields_table",
+              "collection",
+              "severity_summary",
+              "findings_table",
+              "severity_scale",
+              "chart",
+              "text",
+              "html",
+              "page_break"
+            ]
+          },
+          "title": {
+            "type": "string"
+          },
+          "level": {
+            "enum": [
+              0,
+              1,
+              2
+            ],
+            "description": "1 = chapter (h1), 2 = section (h2), 0 = no heading"
+          },
+          "field": {
+            "type": "string"
+          },
+          "fields": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "exclude": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "collection": {
+            "type": "string"
+          },
+          "by": {
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "donut",
+              "bar"
+            ]
+          },
+          "body": {
+            "type": "string",
+            "description": "Markdown with {{ placeholders }}"
+          },
+          "file": {
+            "type": "string"
+          },
+          "depth": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 3
+          },
+          "always": {
+            "type": "boolean"
+          }
+        }
       }
     }
   },

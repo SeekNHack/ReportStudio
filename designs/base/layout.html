@@ -1,0 +1,66 @@
+{#
+  Prints `design.layout` (the Layout tab of the template editor) block by block.
+  Level 1 blocks start a chapter (h1, new page), level 2 blocks are sections (h2)
+  of the current chapter, level 0 blocks have no heading.
+#}
+{% for b in design.layout %}
+{% set lvl = b.level %}
+{% set tag = 'section class="chapter' if lvl == 1 else ('section class="layout-section' if lvl == 2 else 'div class="layout-block') %}
+{% set close = 'section' if lvl == 1 or lvl == 2 else 'div' %}
+{% if b.type == 'cover' %}
+  {% include "cover.html" %}
+{% elif b.type == 'toc' %}
+<section class="front-matter">
+  <span class="running-title">{{ report.client }}{% if report.client %} · {% endif %}{{ report.title }}</span>
+  <span class="running-classification">{{ report.display.classification }}</span>
+  {{ toc(b.depth or 2, b.title or 'Table of Contents') }}
+</section>
+{% elif b.type == 'page_break' %}
+  {{ pagebreak() }}
+{% elif b.type == 'field' and not b.always and not has_value(report, b.field) %}
+  {# empty field: nothing to print #}
+{% elif b.type == 'collection' and not collections[b.collection] is defined %}
+  {# collection removed from the template #}
+{% else %}
+{% set c = design.collections | where('id', b.collection) | first if b.type == 'collection' else none %}
+<{{ tag | safe }} layout-{{ b.type }}{% if b.field %} report-field report-field-{{ b.field }}{% endif %}{% if c %} collection collection-{{ c.id }} layout-{{ c.layout }}{% if c.page_break %} page-break-items{% endif %}{% if c.id == 'findings' %} findings{% endif %}{% endif %}">
+  {% if b.title and lvl %}<h{{ lvl }}>{{ b.title }}</h{{ lvl }}>{% endif %}
+  {% if b.type == 'field' %}
+    {{ render_field(report, b.field) }}
+  {% elif b.type == 'fields_table' %}
+    <table class="info-table">
+      {% for f in layout_fields(b, report) %}<tr><th>{{ f.label }}</th><td>{{ render_field(report, f.id) }}</td></tr>{% endfor %}
+    </table>
+  {% elif b.type == 'collection' %}
+    {% set list = collections[c.id] %}
+    {% if c.description %}<p class="muted">{{ c.description }}</p>{% endif %}
+    {% if c.chart and list | length %}<div class="collection-chart">{{ chart(list, c.chart, 'donut', field_label(c.id, c.chart), c.id) }}</div>{% endif %}
+    {% include "collection-body.html" %}
+  {% elif b.type == 'severity_summary' %}
+    <div class="summary-grid">
+      {{ severity_chart('donut', 'Findings by severity') }}
+      <div class="summary-counts">
+        {% for s in stats.by_severity %}
+        <div class="count-card" style="--c: {{ s.color }}"><span class="count-number">{{ s.count }}</span><span class="count-label">{{ s.label }}</span></div>
+        {% endfor %}
+      </div>
+    </div>
+  {% elif b.type == 'findings_table' %}
+    {{ finding_table() }}
+  {% elif b.type == 'severity_scale' %}
+    <table class="severity-scale">
+      <thead><tr><th>Severity</th><th>CVSS score</th></tr></thead>
+      <tbody>
+      {% for s in design.severities %}<tr><td>{{ badge(s.id) }}</td><td>{% if s.min > 0 %}≥ {{ s.min }}{% else %}0.0{% endif %}</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  {% elif b.type == 'chart' and collections[b.collection] is defined %}
+    {{ chart(collections[b.collection], b.by or 'severity', b.kind or 'donut', '' if b.title else field_label(b.collection, b.by or 'severity'), b.collection) }}
+  {% elif b.type == 'text' %}
+    {{ render_text(b.body) }}
+  {% elif b.type == 'html' and b.file %}
+    {% include b.file ignore missing %}
+  {% endif %}
+</{{ close }}>
+{% endif %}
+{% endfor %}

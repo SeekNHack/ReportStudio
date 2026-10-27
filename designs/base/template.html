@@ -13,6 +13,8 @@
            chart(list, 'field', 'donut'|'bar'), count_by(list, 'field'), toc(), pagebreak(),
            badge(), ref('id'), field_label('report'|<collection>, 'field'), fields_of(...)
 #}
+{# With a layout (Layout tab of the template editor) the blocks are printed in that order. #}
+{% if design.layout %}{% include "layout.html" %}{% else %}
 {% include "cover.html" %}
 
 <section class="front-matter">
@@ -52,3 +54,4 @@
   {{ render_field(report, f.id) }}
 </section>
 {% endfor %}
+{% endif %}

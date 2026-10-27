@@ -43,11 +43,33 @@ export function registerCommands(context: vscode.ExtensionContext, projects: Pro
   /* ------------------------------------------------------------ build */
   reg('reportStudio.buildPdf', (uri?: vscode.Uri) => builds.run('pdf', uri instanceof vscode.Uri ? projects.projectOf(uri.fsPath) : undefined));
   reg('reportStudio.exportHtml', () => builds.run('html'));
+  /** Id of the template a file belongs to (`<designs root>/<id>/…`), if any. */
+  const templateOf = (file: string | undefined): string | undefined => {
+    if (!file) return undefined;
+    for (const root of projects.designRoots(projects.active)) {
+      if (!file.startsWith(root + sep)) continue;
+      const id = file.slice(root.length + 1).split(sep)[0];
+      if (id && existsSync(join(root, id, 'design.yaml'))) return id;
+    }
+    return undefined;
+  };
+
   reg('reportStudio.openPreview', async (arg?: unknown) => {
-    const node = (arg as { kind?: string; dir?: string } | undefined)?.kind === 'engagement' ? (arg as { dir: string }).dir : undefined;
-    if (node) projects.setActive(node);
-    const dir = node ?? (await requireProject());
-    if (dir) preview.show(dir);
+    const a = arg as { kind?: string; dir?: string; template?: string } | undefined;
+    if (a?.kind === 'engagement' && a.dir) {
+      projects.setActive(a.dir);
+      return preview.show(a.dir);
+    }
+    // On a template file: the active engagement if it uses that template, otherwise sample data.
+    const template = typeof a?.template === 'string' ? a.template : projects.projectOf(targetUri(arg)?.fsPath ?? '') ? undefined : templateOf(targetUri(arg)?.fsPath);
+    if (template) {
+      const design = projects.active ? projects.load(projects.active)?.design : undefined;
+      if (design && (design.id === template || design.parents.some((p) => p.id === template))) return preview.show(projects.active);
+      return preview.showTemplate(template);
+    }
+    if (projects.active) return preview.show(projects.active);
+    // No engagement yet: templates can still be previewed with sample data.
+    return vscode.commands.executeCommand('reportStudio.previewTemplate');
   });
 
   /* ---------------------------------------------------------- project */

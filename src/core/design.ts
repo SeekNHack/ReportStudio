@@ -1,6 +1,7 @@
 import { existsSync, readdirSync, statSync } from 'node:fs';
-import { join } from 'node:path';
+import { isAbsolute, join } from 'node:path';
 import { parse } from 'yaml';
+import { normalizeLayout, type LayoutBlock } from './layout';
 import { FIELD_TYPES, type CollectionDef, type CollectionLayout, type Design, type FieldDef, type FieldOption, type FieldType, type ReadFile, type SeverityDef } from './types';
 
 export const DEFAULT_SEVERITIES: SeverityDef[] = [
@@ -52,6 +53,7 @@ export interface RawDesign {
   finding_fields?: Record<string, unknown>;
   collections?: Record<string, RawCollection | null>;
   theme?: Record<string, unknown>;
+  layout?: unknown[];
 }
 
 /** Lists available designs: the first root containing a given id wins. */
@@ -107,6 +109,7 @@ export function loadDesign(roots: string[], id: string, read: ReadFile): Design 
   let templatePath: string | undefined;
   const stylesheets: string[] = [];
   const theme: Record<string, unknown> = {};
+  let layout: LayoutBlock[] | undefined;
   for (const { dir, raw } of [...chain].reverse()) {
     const file = join(dir, 'design.yaml');
     mergeFields(reportFields, raw.report_fields, file);
@@ -151,7 +154,9 @@ export function loadDesign(roots: string[], id: string, read: ReadFile): Design 
       collections.set(cid, col);
     }
     if (raw.severities) severities = normalizeSeverities(raw.severities);
-    Object.assign(theme, raw.theme ?? {});
+    // A layout replaces the inherited one as a whole.
+    if (raw.layout !== undefined) layout = normalizeLayout(raw.layout);
+    Object.assign(theme, themeLayer(raw.theme, dir));
     const tpl = join(dir, raw.template ?? 'template.html');
     if (existsSync(tpl)) templatePath = tpl;
     for (const css of raw.stylesheets ?? ['styles.css']) {
@@ -185,6 +190,7 @@ export function loadDesign(roots: string[], id: string, read: ReadFile): Design 
     stylesheets,
     findingPrefix: findings?.prefix ?? 'F-',
     theme,
+    layout: layout?.length ? layout : undefined,
   };
 }
 
@@ -263,4 +269,15 @@ export function markdownFieldIds(fields: FieldDef[]): string[] {
 
 export function collectionOf(design: Design, id: string): CollectionDef | undefined {
   return design.collections.find((c) => c.id === id);
+}
+
+const THEME_FILE = /\.(png|jpe?g|gif|svg|webp|woff2?|ttf|otf)$/i;
+
+/** Theme values of one design: images and font files are relative to that design's folder. */
+function themeLayer(theme: Record<string, unknown> | undefined, dir: string): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(theme ?? {})) {
+    out[k] = typeof v === 'string' && THEME_FILE.test(v) && !isAbsolute(v) && !/^([a-z]+:|\/\/)/i.test(v) ? join(dir, v) : v;
+  }
+  return out;
 }

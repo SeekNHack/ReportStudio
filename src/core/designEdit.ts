@@ -18,7 +18,9 @@ export type DesignOp =
   | { op: 'setCollection'; id: string; prop: string; value?: unknown }
   | { op: 'removeCollection'; id: string; inherited: boolean }
   | { op: 'restoreCollection'; id: string }
-  | { op: 'renameCollection'; id: string; to: string };
+  | { op: 'renameCollection'; id: string; to: string }
+  | { op: 'setTheme'; key?: string; value?: unknown }
+  | { op: 'setLayout'; blocks?: Record<string, unknown>[] };
 
 const REPORT = '_report';
 
@@ -133,6 +135,35 @@ export function applyDesignOp(text: string, op: DesignOp): string {
       if (isEmpty(op.value)) doc.delete(op.prop);
       else doc.set(op.prop, op.value);
       break;
+    case 'setLayout': {
+      // Without blocks the template goes back to the order of its HTML (or of its parent's layout).
+      if (!op.blocks) {
+        doc.delete('layout');
+        break;
+      }
+      const seq = new YAMLSeq();
+      for (const b of op.blocks) {
+        const clean = Object.fromEntries(Object.entries(b).filter(([, v]) => !isEmpty(v)));
+        const node = doc.createNode(clean) as YAMLMap;
+        // One line per block, except text blocks with several lines.
+        node.flow = !String(clean.body ?? '').includes('\n');
+        seq.add(node);
+      }
+      doc.set('layout', seq);
+      break;
+    }
+    case 'setTheme': {
+      // Without a key the whole theme map is reset to the inherited values.
+      if (!op.key) {
+        doc.delete('theme');
+        break;
+      }
+      if (isEmpty(op.value)) doc.deleteIn(['theme', op.key]);
+      else ensureMap(doc, ['theme']).set(op.key, op.value);
+      const theme = doc.get('theme', true);
+      if (isMap(theme) && !theme.items.length) doc.delete('theme');
+      break;
+    }
     case 'addField': {
       const fields = ensureMap(doc, fieldsPath(doc, op.scope));
       const node = doc.createNode({ type: op.type, ...(op.label && op.label !== humanize(op.id) ? { label: op.label } : {}), ...(op.type === 'enum' ? { options: [] } : {}) }) as YAMLMap;

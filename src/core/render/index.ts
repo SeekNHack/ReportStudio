@@ -4,7 +4,7 @@ import nunjucks from 'nunjucks';
 import { cvssMetrics, scoreCvss } from '../cvss';
 import { screenshotPath } from '../design';
 import { findingSeverity, numberFor, sortItems } from '../project';
-import { resolveTheme, themeCss } from '../theme';
+import { resolveTheme, themeCss, themedSeverities } from '../theme';
 import type { CollectionDef, Design, FieldDef, Issue, Item, Project, ReadFile, Screenshot } from '../types';
 import { barChart, donutChart, type Slice } from './charts';
 import { createMarkdown, parseFenceInfo, protectCode, renderCode, type Markdown } from './markdown';
@@ -205,8 +205,11 @@ export function placeholderExpander(project: Project, design: Design, issues: Is
   return { expand, sortedItems, statsCollection, reportRaw, locale };
 }
 
-export function renderReport(project: Project, design: Design, opts: RenderOptions): RenderResult {
+export function renderReport(project: Project, baseDesign: Design, opts: RenderOptions): RenderResult {
   const issues: Issue[] = [];
+  const theme = resolveTheme(baseDesign.theme, project.report.theme as Record<string, unknown> | undefined);
+  // Severity colors chosen in the Theme editor apply everywhere (badges, charts, tables).
+  const design: Design = { ...baseDesign, severities: themedSeverities(baseDesign.severities, theme) };
   const md = createMarkdown({ baseDir: project.dir, assetUrl: opts.assetUrl });
   md.renderer.rules.heading_open = (tokens, idx) => `<${tokens[idx].tag} class="md-heading">`;
   const fixedOf = isResolved;
@@ -301,7 +304,8 @@ export function renderReport(project: Project, design: Design, opts: RenderOptio
   addFilters(env, design, locale, md);
   addGlobals(env, { design, collections, findings, stats, opts, loader, scopes, locale, projectDir: project.dir });
 
-  const theme = resolveTheme(design.theme, project.report.theme as Record<string, unknown> | undefined);
+  /** Fixed Markdown of layout "text" blocks, with the same placeholders as Markdown fields. */
+  env.addGlobal('render_text', (text: unknown) => new SafeString(md.render(expand(String(text ?? ''), {}, project.reportFile, 'layout'))));
   const projectAsset = (v: unknown) => (typeof v === 'string' && v ? (/^([a-z]+:|\/\/)/i.test(v) ? v : opts.assetUrl(isAbsolute(v) ? v : join(project.dir, v))) : undefined);
   const aliases = Object.fromEntries(Object.entries(collections).filter(([k]) => !RESERVED_NAMES.includes(k) && /^[a-zA-Z_]\w*$/.test(k)));
   const context = {
@@ -318,6 +322,7 @@ export function renderReport(project: Project, design: Design, opts: RenderOptio
       report_fields: design.reportFields,
       finding_fields: design.findingFields,
       collections: design.collections.map((c) => ({ ...c, item_label: c.itemLabel, item_var: c.itemVar, title_field: c.titleField, has_severity: c.hasSeverity, page_break: c.pageBreak })),
+      layout: design.layout,
     },
     now: new Date(),
   };
@@ -566,6 +571,14 @@ function addGlobals(env: nunjucks.Environment, g: GlobalsCtx) {
     return (scope?.fields ?? []).filter((f) => f.id !== (c?.titleField ?? 'title') && (kind === 'body' ? body.includes(f.type) : !body.includes(f.type)) && hasValue(item, f.id));
   });
   env.addGlobal('template_exists', (name: string) => !!loader.resolvePath(name));
+  env.addGlobal('has_value', (obj: Ctx, fieldId: string) => hasValue(obj ?? {}, fieldId));
+  /** Rows of a layout "fields_table" block: its own field list, or the "details" fields minus `exclude`. */
+  env.addGlobal('layout_fields', (block: { fields?: string[]; exclude?: string[] }, report: Ctx) => {
+    const list = Array.isArray(block?.fields) && block.fields.length
+      ? block.fields.map((id) => design.reportFields.find((f) => f.id === id)).filter((f): f is FieldDef => !!f)
+      : design.reportFields.filter((f) => (f.section ?? (['markdown', 'code', 'screenshots'].includes(f.type) ? 'before' : 'details')) === 'details' && !(block?.exclude ?? []).includes(f.id));
+    return list.filter((f) => hasValue(report, f.id));
+  });
   env.addGlobal('asset', (name: string) => {
     const path = loader.resolvePath(join('assets', name)) ?? loader.resolvePath(name);
     return path ? opts.assetUrl(path) : name;

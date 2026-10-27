@@ -1,0 +1,17 @@
+{# Entries of one collection, without heading. Receives `c` (the collection) and `list`. #}
+{% if not list | length %}
+  <p class="muted">No {{ c.label | lower }}.</p>
+{% elif c.id == 'findings' and template_exists('finding.html') %}
+  {% for finding in list %}{% include "finding.html" %}{% endfor %}
+{% elif template_exists('collection-' + c.id + '.html') %}
+  {% include 'collection-' + c.id + '.html' %}
+{% elif c.layout == 'table' %}
+  {{ item_table(list, (c.columns | join(',')) if c.columns else undefined, c.id) }}
+{% elif c.layout == 'timeline' %}
+  {% set timeField = (fields_of(c.id, 'datetime,date') | first).id %}
+  {{ timeline(list, timeField or 'timestamp', c.id) }}
+{% else %}
+  {% for item in list %}
+    {% if template_exists('item-' + c.id + '.html') %}{% include 'item-' + c.id + '.html' %}{% else %}{% include 'item.html' %}{% endif %}
+  {% endfor %}
+{% endif %}

@@ -15,6 +15,7 @@ Pentest · Retest · Red team · Incident response · Forensics · Malware · Au
 ## Features
 
 - **15 report types** ready to use, or your own: fields, collections (findings, events, IOCs…), layout, cover, fonts and colors — with a GUI or as YAML.
+- **Visual template editor**: drag the chapters of the report into order, add text with placeholders, and style headings, tables, cover and severity colors without writing CSS.
 - **Forms** for every report and entry, with CVSS 3.1/4.0 calculator, Markdown editor, screenshot galleries and code listings.
 - **Live paged preview** and **PDF export** (Chrome + Paged.js): table of contents, page numbers, charts, Mermaid diagrams.
 - **Screenshot annotation**: boxes, arrows, highlighter, redaction, numbered steps, crop.
@@ -110,7 +111,38 @@ Install with `code-server --install-extension report-studio-<version>.vsix`.
   collections, info table, hidden).
 - **Collections**: add one per kind of entry; choose labels, numbering prefix, sort order,
   title field, icon and layout (**sections**, **table** or **timeline**), then its fields.
+- **Layout**: the order of the report as blocks you drag around — cover, table of contents,
+  headings, any report field, fields tables, collections, severity summary, findings table,
+  severity scale, charts, Markdown text with `{{ placeholders }}`, custom HTML files and page
+  breaks. Each block can be a chapter (H1, new page), a section (H2) or have no heading. New
+  fields that are not in the layout yet are highlighted in the palette, so adding a
+  *Management Summary* and moving it before the findings takes two clicks.
+- **Theme**: colors, fonts, cover (gradient, solid, image, split, minimal; colors, direction,
+  logo, title size), heading colors and sizes, table header / labels / borders / stripes,
+  captions, page size and margins, and one color per severity. Values set here are the
+  defaults of every report made with the template; a report can still override them in its
+  own Theme tab.
+- **Preview**: the template with sample data, refreshed while you edit — no engagement needed.
 - Inherited fields (with `extends`) can be changed or hidden without copying them.
+
+The layout in YAML (what the Layout tab writes):
+
+```yaml
+layout:
+  - { type: cover }
+  - { type: toc }
+  - { type: field, field: executive_summary, title: Executive Summary, level: 1 }
+  - { type: field, field: management_summary, title: Management Summary, level: 1 }
+  - { type: text, title: Note, level: 2, body: "Prepared for **{{ report.client }}**." }
+  - { type: severity_summary }
+  - { type: collection, collection: findings, title: Findings, level: 1 }
+  - { type: chart, collection: findings, by: category, kind: bar }
+  - { type: html, file: appendix.html }
+```
+
+If the template has a `template.html` written by hand, the order is up to that file: the
+**Placeholders** tab lists every field with the right placeholder for its type and inserts it
+where the cursor is in template.html.
 
 The same thing in YAML:
 
@@ -250,7 +282,8 @@ Filters: `date`, `datetime`, `markdown`, `yesno`, `where`, `sort_by`, `pluck`, `
 
 ## Templates
 
-Designs that extend `base` need no HTML. To change one piece, add a file with the same name
+Designs that extend `base` need no HTML, and their order can be changed in the Layout tab
+(`layout:` in design.yaml, printed by `layout.html`). To change one piece, add a file with the same name
 to your design: `cover.html`, `item.html`, `item-<collection>.html`,
 `collection-<collection>.html`, `summary-extra.html`. To start from a full copy use
 **Copy Design to Workspace**. Templates are [Nunjucks](https://mozilla.github.io/nunjucks/);
@@ -266,6 +299,7 @@ helpers:
 | `severity_chart()`, `status_chart()`, `finding_table()`, `badge()`, `cvss_table()` | security helpers |
 | `ref('id')` | cross-reference with page number |
 | `report_fields_in('before'\|'after'\|'details', report)`, `item_fields(item, 'meta'\|'body')` | generic sections |
+| `render_text(markdown)`, `has_value(obj, 'id')` | Markdown with placeholders, value check |
 | `pagebreak()`, `asset('logo.svg')`, `template_exists('x.html')`, `field_label()`, `fields_of()` | utilities |
 
 Mermaid diagrams (` ```mermaid `) work in every Markdown field. Page layout uses CSS paged

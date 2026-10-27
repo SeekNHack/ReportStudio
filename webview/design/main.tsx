@@ -2,6 +2,10 @@ import { render } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import type { FieldDef, FieldOption } from '../../src/core/types';
 import { vscode } from '../shared/vscode';
+import { Sections, setPath, type Values } from '../form/sections';
+import type { Meta } from '../form/types';
+import { Prop, TextInput, Toggle } from './controls';
+import { LayoutPanel, type LayoutState } from './layout';
 import '../form/form.css';
 import './design.css';
 
@@ -43,6 +47,12 @@ interface State {
   collections: CollectionRow[];
   removedCollections: { id: string; label: string }[];
   templateFile?: string;
+  theme: Values;
+  themeFields: FieldDef[];
+  themeDefaults: Values;
+  /** webview URL of the template folder, for theme images */
+  base: string;
+  layout?: LayoutState;
 }
 
 const TYPE_INFO: Record<string, { icon: string; text: string }> = {
@@ -79,64 +89,6 @@ const slug = (s: string) =>
     .replace(/[̀-ͯ]/g, '')
     .replace(/[^a-z0-9]+/g, '_')
     .replace(/^_+|_+$/g, '');
-
-/** Text input that keeps what the user types while focused and commits after a pause or on blur. */
-function TextInput(props: { value: string; onCommit: (v: string) => void; placeholder?: string; class?: string; mono?: boolean; commitOnBlurOnly?: boolean; disabled?: boolean; multiline?: boolean }) {
-  const [local, setLocal] = useState(props.value);
-  const focused = useRef(false);
-  const timer = useRef<number | undefined>(undefined);
-  useEffect(() => {
-    if (!focused.current) setLocal(props.value);
-  }, [props.value]);
-  const commit = (v: string) => {
-    clearTimeout(timer.current);
-    if (v !== props.value) props.onCommit(v);
-  };
-  const common = {
-    class: `input ${props.mono ? 'mono' : ''} ${props.class ?? ''}`,
-    value: local,
-    placeholder: props.placeholder,
-    disabled: props.disabled,
-    onFocus: () => (focused.current = true),
-    onBlur: () => {
-      focused.current = false;
-      commit(local);
-    },
-    onInput: (e: Event) => {
-      const v = (e.target as HTMLInputElement).value;
-      setLocal(v);
-      if (!props.commitOnBlurOnly) {
-        clearTimeout(timer.current);
-        timer.current = window.setTimeout(() => commit(v), 450);
-      }
-    },
-    onKeyDown: (e: KeyboardEvent) => {
-      if (e.key === 'Enter' && !props.multiline) (e.target as HTMLInputElement).blur();
-    },
-  };
-  return props.multiline ? <textarea rows={3} {...common} /> : <input {...common} />;
-}
-
-function Toggle(props: { on: boolean; onChange: (v: boolean) => void; disabled?: boolean; label?: string }) {
-  return (
-    <button class={`toggle ${props.on ? 'on' : ''}`} disabled={props.disabled} onClick={() => props.onChange(!props.on)}>
-      <span class="toggle-knob" />
-      <span class="toggle-text">{props.label ?? (props.on ? 'Yes' : 'No')}</span>
-    </button>
-  );
-}
-
-function Prop(props: { label: string; help?: string; children: preact.ComponentChildren; wide?: boolean }) {
-  return (
-    <div class={`prop ${props.wide ? 'wide' : ''}`}>
-      <label>{props.label}</label>
-      {props.children}
-      {props.help && <div class="field-help">{props.help}</div>}
-    </div>
-  );
-}
-
-/* ------------------------------------------------------------ options */
 
 function OptionsEditor(props: { options: FieldOption[]; onChange: (o: FieldOption[]) => void; disabled?: boolean }) {
   const opts = props.options;
@@ -619,6 +571,74 @@ function AddCollection(props: { existing: string[]; onAdded: (id: string) => voi
 
 /* ---------------------------------------------------------------- app */
 
+/** Theme defaults of the template (design.yaml → theme), with the same controls as the report's Theme tab. */
+function ThemePanel(props: { s: State }) {
+  const { s } = props;
+  const [theme, setTheme] = useState<Values>(s.theme);
+  const edited = useRef(new Map<string, number>());
+  const timers = useRef(new Map<string, number>());
+  useEffect(() => {
+    // Keep what is being typed right now; take everything else from the document.
+    const now = Date.now();
+    setTheme((old) => {
+      const next = { ...s.theme };
+      for (const [k, t] of edited.current) if (now - t < 1200) next[k] = old[k];
+      for (const k of Object.keys(next)) if (next[k] === undefined) delete next[k];
+      return next;
+    });
+  }, [s.theme]);
+  const values: Values = { theme };
+  const change = (key: string, value: unknown, immediate = false) => {
+    if (s.readOnly) return;
+    if (key === 'theme') {
+      setTheme({});
+      return op({ op: 'setTheme' });
+    }
+    const sub = key.slice('theme.'.length);
+    edited.current.set(sub, Date.now());
+    setTheme((t) => {
+      const next = { theme: t };
+      setPath(next, key, value);
+      return next.theme as Values;
+    });
+    clearTimeout(timers.current.get(sub));
+    const send = () => op({ op: 'setTheme', key: sub, value });
+    if (immediate) send();
+    else timers.current.set(sub, window.setTimeout(send, 250));
+  };
+  const meta: Meta = {
+    file: s.file,
+    inProject: false,
+    library: false,
+    designs: [],
+    severities: [],
+    collectionMissing: false,
+    themeFields: s.themeFields,
+    themeDefaults: s.themeDefaults,
+    projectBase: s.base,
+    placeholders: { report: [], finding: [], itemVar: 'finding', collections: [], stats: [] },
+  };
+  const overridden = Object.keys(theme).length;
+  return (
+    <div class={`theme-panel ${s.readOnly ? 'readonly' : ''}`}>
+      <div class="theme-bar">
+        <span>
+          <i class="codicon codicon-info" /> Saved in <code>design.yaml → theme</code>: the default look of every report made with this template
+          {s.extends ? ` (unset values come from "${s.extends}")` : ''}. A report can still override them in its own Theme tab. Images go into the template's <code>assets/</code> folder.
+        </span>
+        <span class="spacer" />
+        <button class="btn" onClick={() => cmd('reportStudio.openPreview', { template: s.id })}>
+          <i class="codicon codicon-open-preview" /> Preview
+        </button>
+        <button class="btn ghost" disabled={!overridden || s.readOnly} onClick={() => change('theme', undefined, true)}>
+          <i class="codicon codicon-discard" /> Reset all
+        </button>
+      </div>
+      <Sections fields={s.themeFields} values={values} meta={meta} onChange={change} issuesFor={() => []} prefix="theme." defaults={s.themeDefaults} context={{ ...s.themeDefaults, ...theme }} />
+    </div>
+  );
+}
+
 function App() {
   const [s, setS] = useState<State | null>(null);
   const [view, setView] = useState<string>(() => vscode.getState<{ view?: string }>()?.view ?? 'general');
@@ -632,7 +652,12 @@ function App() {
   if (!s) return <div class="loading">Loading…</div>;
   const ro = s.readOnly;
   const current = s.collections.find((c) => `c:${c.id}` === view);
-  const active = view === 'general' || view === 'report' || view === 'new' || current ? view : 'general';
+  const active = ['general', 'report', 'layout', 'theme', 'new'].includes(view) || current ? view : 'general';
+  // Body fields that a saved layout does not print (they would silently disappear from the report).
+  const unplaced =
+    s.layout?.supported && s.layout.own
+      ? s.report.filter((f) => ['markdown', 'code', 'screenshots', 'table', 'image'].includes(f.type) && !s.layout!.blocks.some((b) => b.field === f.id || b.fields?.includes(f.id)))
+      : [];
 
   return (
     <div class="design-app">
@@ -648,7 +673,7 @@ function App() {
           <button class="btn" onClick={() => cmd('openTemplate')} title={s.templateFile}>
             <i class="codicon codicon-file-code" /> Template
           </button>
-          <button class="btn" onClick={() => cmd('reportStudio.openPreview')}>
+          <button class="btn" onClick={() => cmd('reportStudio.openPreview', { template: s.id })}>
             <i class="codicon codicon-open-preview" /> Preview
           </button>
           <button class="icon-btn" onClick={() => cmd('openAsText')} title="Open as YAML">
@@ -673,6 +698,14 @@ function App() {
           </a>
           <a class={active === 'report' ? 'on' : ''} onClick={() => setView('report')}>
             <i class="codicon codicon-book" /> Report fields <span class="count">{s.report.length}</span>
+          </a>
+          {s.layout && (
+            <a class={active === 'layout' ? 'on' : ''} onClick={() => setView('layout')}>
+              <i class="codicon codicon-layout" /> {s.layout.supported ? 'Layout' : 'Placeholders'} {unplaced.length > 0 && <span class="count warn" title="Fields not placed in the layout">{unplaced.length}</span>}
+            </a>
+          )}
+          <a class={active === 'theme' ? 'on' : ''} onClick={() => setView('theme')}>
+            <i class="codicon codicon-paintcan" /> Theme {Object.keys(s.theme).length > 0 && <span class="count">{Object.keys(s.theme).length}</span>}
           </a>
           <div class="nav-title">Collections</div>
           {s.collections.map((c) => (
@@ -736,10 +769,23 @@ function App() {
               </h2>
               <div class="group-pad">
                 <p class="muted">Asked once per report (in the Report form). Use them anywhere as <code>{'{{ report.<id> }}'}</code>.</p>
+                {unplaced.length > 0 && (
+                  <div class="banner warning">
+                    <i class="codicon codicon-warning" /> Not printed by the layout: {unplaced.map((f) => f.label).join(', ')}. <a onClick={() => setView('layout')}>Place them in the Layout</a>.
+                  </div>
+                )}
                 <FieldList scope="_report" fields={s.report} removed={s.removedReport} readOnly={ro} types={s.types} />
+                {s.layout?.supported && (
+                  <p class="muted">
+                    {s.layout.own ? 'This template has its own layout: after adding a field, place it in the ' : 'New fields are printed automatically in their default place; to choose where, use the '}
+                    <a onClick={() => setView('layout')}>Layout</a> tab.
+                  </p>
+                )}
               </div>
             </section>
           )}
+          {active === 'theme' && <ThemePanel s={s} />}
+          {active === 'layout' && s.layout && <LayoutPanel layout={s.layout} readOnly={ro} designId={s.id} designName={s.name || s.id} onEditFields={() => setView('report')} />}
           {current && <CollectionPanel c={current} readOnly={ro} types={s.types} onRenamed={(id) => setView(`c:${id}`)} />}
           {active === 'new' && <AddCollection existing={s.collections.map((c) => c.id)} disabled={ro} onAdded={(id) => setView(`c:${id}`)} />}
         </main>

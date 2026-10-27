@@ -2,34 +2,10 @@ import { render } from 'preact';
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { scoreCvss, severityForScore } from '../../src/core/cvss';
 import { vscode } from '../shared/vscode';
-import { Field } from './fields';
+import { getPath, Sections, setPath, type Values } from './sections';
 import './form.css';
 import type { FieldDef, FieldIssue, InitMessage, Meta } from './types';
 
-type Values = Record<string, unknown>;
-
-function groupFields(fields: FieldDef[]): [string, FieldDef[]][] {
-  const groups = new Map<string, FieldDef[]>();
-  for (const f of fields) {
-    const g = f.group ?? 'General';
-    groups.set(g, [...(groups.get(g) ?? []), f]);
-  }
-  return [...groups];
-}
-
-const GROUP_ICONS: Record<string, string> = {
-  General: 'info',
-  Overview: 'dashboard',
-  Details: 'note',
-  Remediation: 'tools',
-  Retest: 'debug-rerun',
-  Engagement: 'calendar',
-  Summary: 'graph',
-  Colors: 'symbol-color',
-  Typography: 'text-size',
-  Cover: 'book',
-  Page: 'file',
-};
 
 function App() {
   const [init, setInit] = useState<InitMessage | null>(null);
@@ -147,55 +123,6 @@ function App() {
   );
 }
 
-function Sections(props: { fields: FieldDef[]; values: Values; meta: Meta; onChange: (k: string, v: unknown, immediate?: boolean) => void; issuesFor: (id: string) => FieldIssue[]; prefix?: string; defaults?: Values; context?: Values }) {
-  const groups = groupFields(props.fields);
-  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
-  return (
-    <>
-      {groups.length > 1 && (
-        <nav class="group-nav">
-          {groups.map(([g, list]) => {
-            const missing = list.filter((f) => f.required && isEmpty(getPath(props.values, (props.prefix ?? '') + f.id))).length;
-            return (
-              <a onClick={() => document.getElementById(`group-${g}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>
-                <i class={`codicon codicon-${GROUP_ICONS[g] ?? 'symbol-namespace'}`} /> {g}
-                {missing > 0 && <span class="pill warn">{missing}</span>}
-              </a>
-            );
-          })}
-        </nav>
-      )}
-      {groups.map(([g, list]) => (
-        <section class="group" id={`group-${g}`}>
-          <h2 class="group-title" onClick={() => setCollapsed({ ...collapsed, [g]: !collapsed[g] })}>
-            <i class={`codicon codicon-chevron-${collapsed[g] ? 'right' : 'down'}`} />
-            <i class={`codicon codicon-${GROUP_ICONS[g] ?? 'symbol-namespace'}`} /> {g}
-          </h2>
-          {!collapsed[g] && (
-            <div class="group-body">
-              {list.map((f) => {
-                const key = (props.prefix ?? '') + f.id;
-                return (
-                  <Field
-                    field={f}
-                    value={getPath(props.values, key)}
-                    onChange={(v, immediate) => props.onChange(key, v, immediate)}
-                    meta={props.meta}
-                    issues={props.issuesFor(f.id)}
-                    fallback={props.defaults?.[f.id]}
-                    onReset={props.defaults ? () => props.onChange(key, undefined, true) : undefined}
-                    context={props.context}
-                  />
-                );
-              })}
-            </div>
-          )}
-        </section>
-      ))}
-    </>
-  );
-}
-
 function ThemeEditor(props: { meta: Meta; values: Values; onChange: (k: string, v: unknown, immediate?: boolean) => void }) {
   const theme = (props.values.theme as Values) ?? {};
   const effective = { ...props.meta.themeDefaults, ...theme };
@@ -294,30 +221,6 @@ function Header(props: { kind: 'finding' | 'report'; values: Values; meta: Meta;
       </div>
     </header>
   );
-}
-
-function isEmpty(v: unknown): boolean {
-  return v === undefined || v === null || v === '' || (Array.isArray(v) && !v.length);
-}
-
-function getPath(obj: Values, key: string): unknown {
-  if (!key.startsWith('theme.')) return obj[key];
-  return ((obj.theme as Values) ?? {})[key.slice(6)];
-}
-
-function setPath(obj: Values, key: string, value: unknown): void {
-  if (key === 'theme') {
-    obj.theme = value ?? {};
-    return;
-  }
-  if (!key.startsWith('theme.')) {
-    obj[key] = value;
-    return;
-  }
-  const theme = { ...((obj.theme as Values) ?? {}) };
-  if (value === undefined) delete theme[key.slice(6)];
-  else theme[key.slice(6)] = value;
-  obj.theme = theme;
 }
 
 render(<App />, document.getElementById('app')!);
