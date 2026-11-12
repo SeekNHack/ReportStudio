@@ -2,7 +2,7 @@
   "name": "report-studio",
   "displayName": "Report Studio",
   "description": "Write security and IT reports in VS Code like SysReptor and PwnDoc: pentest, retest, incident response, forensics, audits. Configurable fields, live paged preview, PDF export, screenshot annotation and Excel/CSV/JSON/SARIF export.",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "publisher": "hacknseek",
   "license": "MIT",
   "icon": "media/icon.png",

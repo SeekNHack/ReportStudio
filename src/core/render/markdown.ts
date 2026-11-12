@@ -44,19 +44,23 @@ export function createMarkdown(opts: MarkdownOptions): Markdown {
   // A paragraph that only contains an image becomes a numbered <figure>.
   md.core.ruler.push('figures', (state) => {
     const t = state.tokens;
+    // ![Caption|60%](shot.png) → width 60%, also for images inline with text
+    for (const tok of t) {
+      for (const img of tok.children ?? []) {
+        if (img.type !== 'image') continue;
+        const sized = /^(.*?)\s*\|\s*(\d+(?:\.\d+)?(?:%|mm|cm|px))\s*$/.exec(img.content);
+        if (!sized) continue;
+        img.content = sized[1];
+        img.children = sized[1] ? [Object.assign(new state.Token('text', '', 0), { content: sized[1] })] : [];
+        img.attrSet('style', `width:${sized[2]}`);
+      }
+    }
     for (let i = 0; i < t.length - 2; i++) {
       if (t[i].type !== 'paragraph_open' || t[i + 2].type !== 'paragraph_close') continue;
       const inline = t[i + 1];
       const children = inline.children ?? [];
       if (children.length !== 1 || children[0].type !== 'image') continue;
       const img = children[0];
-      // ![Caption|60%](shot.png) → width 60%
-      const sized = /^(.*?)\s*\|\s*(\d+(?:\.\d+)?(?:%|mm|cm|px))\s*$/.exec(img.content);
-      if (sized) {
-        img.content = sized[1];
-        if (img.children?.length) img.children = [Object.assign(new state.Token('text', '', 0), { content: sized[1] })];
-        img.attrSet('style', `width:${sized[2]}`);
-      }
       const caption = img.attrGet('title') || img.content;
       t[i].type = 'figure_open';
       t[i].tag = 'figure';

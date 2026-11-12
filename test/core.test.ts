@@ -7,7 +7,7 @@ import { applyDesignOp } from '../src/core/designEdit';
 import { findingValues, parseFinding, serializeFinding, setFindingValue } from '../src/core/findingFile';
 import { defaultRead, designRoots, loadProject, sortItems } from '../src/core/project';
 import { renderReport } from '../src/core/render';
-import { parseFenceInfo, renderCode } from '../src/core/render/markdown';
+import { createMarkdown, parseFenceInfo, renderCode } from '../src/core/render/markdown';
 import { sampleProject } from './presets';
 import { themeCss } from '../src/core/theme';
 import { validateProject } from '../src/core/validate';
@@ -195,5 +195,13 @@ describe('code and screenshots', () => {
     const r = renderReport(loadProject(join(root, 'examples/demo-engagement')), loadDesign(roots, 'retest', defaultRead), { read: defaultRead, assetUrl: asset });
     expect(r.body).toContain('style="width:75%"');
     expect(r.body).toContain('<figure class="listing"><div class="code-title">POST /api/v2/auth/login</div>');
+  });
+});
+
+describe('image width', () => {
+  it('applies |35% to an image inside a text paragraph', () => {
+    const html = createMarkdown({ baseDir: '/x', assetUrl: (p) => p }).render('Some text\n![|35%](a.png)');
+    expect(html).toContain('style="width:35%"');
+    expect(html).not.toContain('|35%');
   });
 });

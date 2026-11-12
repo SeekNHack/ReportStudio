@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.1
+
+- Image width (`![Caption|50%](shot.png)`) now also works when the image sits right after
+  text in the same paragraph, e.g. in the Retest field.
+
 ## 0.4.0
 
 - Template editor → **Layout** tab: the order of the report as blocks (cover, table of
